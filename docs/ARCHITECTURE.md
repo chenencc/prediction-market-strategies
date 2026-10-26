@@ -25,13 +25,17 @@ or Metaculus services.
 ## Data and simulation boundaries
 
 The three stored Parquets are our archival format, not Nautilus catalog files.
-An offline converter may be added later. Sampled depth does not establish
+`NautilusExporter` verifies and converts them into a separate native catalog.
+Sampled depth does not establish
 continuous changes, queue position, atomic multi-venue execution or guaranteed
 fills. Historical post-capture trades and delayed chain verification are not
 live-available strategy signals. Missing fees, precision and settlement evidence
 remain explicit unknowns.
 
-## Bootstrap state
+## Current integration boundary
 
-No strategies or clients are implemented yet. Creating a directory/package is
-not a tested integration. No live execution or network work is enabled by import.
+The offline exporter has synthetic recorder-format catalog/readback/engine
+validation. Real metadata completeness and exact engine-source validation remain
+separate gates; see [exporter validation](NAUTILUS_EXPORTER.md). No strategies or
+trading clients are implemented. No live execution or network work is enabled
+by import.

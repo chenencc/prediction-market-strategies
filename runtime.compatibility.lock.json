@@ -1,0 +1,23 @@
+{
+  "schema": "nautilus-compatibility-runtime/1",
+  "purpose": "Explicit offline exporter compatibility probe, separate from engine.lock.json",
+  "python": "3.13.14",
+  "platform": "win_amd64",
+  "nautilus_trader": "2.0.0rc8.dev20261025",
+  "engine_commit": "b23139911fd9fed82aed2811c5a8a373202b9480",
+  "reported_engine_commit_prefix": "b23139911fd9",
+  "wheel_url": "https://packages.nautechsystems.io/simple/nautilus-trader/nautilus_trader-2.0.0rc8.dev20261025-cp313-cp313-win_amd64.whl",
+  "wheel_sha256": "ef2391d1b03b96c8231cc8ff20490a21e195cdbb2fad6ffcfd9a51e87379e7c7",
+  "pyarrow": "26.0.0",
+  "desired_engine_commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+  "desired_engine_runtime_verified": false,
+  "desired_source_ci_run": "https://github.com/nautechsystems/nautilus_trader/actions/runs/40309612595",
+  "desired_source_ci_conclusion_at_check": "failure",
+  "desired_source_ci_artifacts_at_check": 0,
+  "automatic_upgrades": false,
+  "limitations": [
+    "This wheel is an older source than the reviewed engine baseline; passing probes do not verify that baseline",
+    "Windows account result aggregation aborts for 18-decimal collateral; data-only probe skips that path",
+    "No strategy orders, execution/fee simulation, profitability or live execution certified"
+  ]
+}

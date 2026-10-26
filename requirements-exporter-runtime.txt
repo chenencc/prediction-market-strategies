@@ -1,0 +1,4 @@
+# Windows CPython 3.13 compatibility runtime; NOT the engine.lock.json source.
+# Install in an isolated virtual environment. The engine wheel is hash-bound.
+nautilus_trader @ https://packages.nautechsystems.io/simple/nautilus-trader/nautilus_trader-2.0.0rc8.dev20261025-cp313-cp313-win_amd64.whl#sha256=ef2391d1b03b96c8231cc8ff20490a21e195cdbb2fad6ffcfd9a51e87379e7c7
+pyarrow==26.0.0

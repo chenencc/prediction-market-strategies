@@ -33,10 +33,16 @@ tests/                        # Offline regression cases
 docs/                         # Architecture and upgrade decisions
 ```
 
-Run bootstrap checks with `python -m unittest discover -s tests -v`.
-The package has no engine dependency installed by default. Before using any
-Nautilus APIs, build or otherwise verify the exact engine revision in the lock;
-do not substitute the latest package or a floating Git branch.
+The package has no engine dependency installed by default. The standalone
+exporter now reads the three-Parquet recording contract, verifies source hashes
+and snapshot/delta replay, then writes a Nautilus catalog and verifies cold
+readback. It supports all four task/group shapes without importing the recorder.
+
+See [NautilusExporter usage, validation and limitations](docs/NAUTILUS_EXPORTER.md).
+Run `python -m unittest discover -s tests -v` after installing its explicit runtime.
+The inspected compatibility runtime is pinned separately in
+`runtime.compatibility.lock.json`; it **does not verify** the newer source in
+`engine.lock.json`. No floating engine dependency is installed.
 
 ## Initial work sequence
 
@@ -47,7 +53,10 @@ do not substitute the latest package or a floating Git branch.
 
 The acquisition system remains in its existing repository. Final recorded data
 continues to use `context.parquet`, `orderbook.parquet` and `trades.parquet` per
-recording group. No dataset, private key or provider token belongs in Git.
+recording group. Exported Nautilus catalogs are independent research artifacts;
+they never replace or modify those source products. No real dataset, private key
+or provider token belongs in Git. The small checked-in fixture contains only
+synthetic transport responses processed by the actual recorder.
 
 See [engine upgrade workflow](docs/ENGINE_UPGRADES.md) and
 [architecture boundaries](docs/ARCHITECTURE.md).

@@ -1,0 +1,141 @@
+{
+  "schema": "nautilus-exporter-acceptance/1",
+  "at": "2026-10-26T11:59:56.305250+00:00",
+  "status": "synthetic_native_catalog_and_no_order_replay_passed_real_metadata_blocked",
+  "source_contract": "recording-group-parquet/1",
+  "instrument_metadata": "instrument-metadata/1",
+  "recorder_commit": "57f391918de5b95062e5532ca0200e9786188e1b",
+  "runtime": {
+    "schema": "nautilus-compatibility-runtime/1",
+    "purpose": "Explicit offline exporter compatibility probe, separate from engine.lock.json",
+    "python": "3.13.14",
+    "platform": "win_amd64",
+    "nautilus_trader": "2.0.0rc8.dev20261025",
+    "engine_commit": "b23139911fd9fed82aed2811c5a8a373202b9480",
+    "reported_engine_commit_prefix": "b23139911fd9",
+    "wheel_url": "https://packages.nautechsystems.io/simple/nautilus-trader/nautilus_trader-2.0.0rc8.dev20261025-cp313-cp313-win_amd64.whl",
+    "wheel_sha256": "ef2391d1b03b96c8231cc8ff20490a21e195cdbb2fad6ffcfd9a51e87379e7c7",
+    "pyarrow": "26.0.0",
+    "desired_engine_commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+    "desired_engine_runtime_verified": false,
+    "desired_source_ci_run": "https://github.com/nautechsystems/nautilus_trader/actions/runs/40309612595",
+    "desired_source_ci_conclusion_at_check": "failure",
+    "desired_source_ci_artifacts_at_check": 0,
+    "automatic_upgrades": false,
+    "limitations": [
+      "This wheel is an older source than the reviewed engine baseline; passing probes do not verify that baseline",
+      "Windows account result aggregation aborts for 18-decimal collateral; data-only probe skips that path",
+      "No strategy orders, execution/fee simulation, profitability or live execution certified"
+    ]
+  },
+  "tests": {
+    "passed": 18,
+    "failures": 0,
+    "errors": 0,
+    "lint": "ruff check passed",
+    "fixture_provenance": "Actual frozen recorder, fake official HTTP responses, private-HF in-memory stub, verified publication and retirement; no real market providers called",
+    "real_market_e2e": false,
+    "results": [
+      {
+        "task_type": "opening_research",
+        "instruments": 2,
+        "book_batches": 2,
+        "trade_ticks": 0,
+        "trade_counts": {
+          "observations": 4,
+          "ambiguous_quarantined": 4
+        },
+        "catalog_cold_readback_verified": true,
+        "source_files_unchanged": true,
+        "engine_iterations": 2,
+        "engine_success": true,
+        "account_result_aggregation_skipped": false
+      },
+      {
+        "task_type": "cross_platform_pair",
+        "instruments": 4,
+        "book_batches": 3,
+        "trade_ticks": 1,
+        "trade_counts": {
+          "observations": 8,
+          "ambiguous_quarantined": 4,
+          "canonical_observed_trades": 1,
+          "duplicate_observations": 3
+        },
+        "catalog_cold_readback_verified": true,
+        "source_files_unchanged": true,
+        "engine_iterations": 4,
+        "engine_success": true,
+        "account_result_aggregation_skipped": true
+      },
+      {
+        "task_type": "same_platform_combination",
+        "instruments": 4,
+        "book_batches": 28,
+        "trade_ticks": 0,
+        "trade_counts": {
+          "observations": 8,
+          "ambiguous_quarantined": 8
+        },
+        "catalog_cold_readback_verified": true,
+        "source_files_unchanged": true,
+        "engine_iterations": 28,
+        "engine_success": true,
+        "account_result_aggregation_skipped": false
+      },
+      {
+        "task_type": "cross_sectional",
+        "instruments": 4,
+        "book_batches": 4,
+        "trade_ticks": 0,
+        "trade_counts": {
+          "observations": 8,
+          "ambiguous_quarantined": 8
+        },
+        "catalog_cold_readback_verified": true,
+        "source_files_unchanged": true,
+        "engine_iterations": 4,
+        "engine_success": true,
+        "account_result_aggregation_skipped": false
+      }
+    ]
+  },
+  "real_saved_metadata": {
+    "markets": 67,
+    "ready": 0,
+    "first_failure_counts": {
+      "MISSING_PRICE_PRECISION": 67
+    },
+    "missing_or_null_counts": {
+      "quantity_increment": 67,
+      "price_precision": 67,
+      "quantity_precision": 67,
+      "collateral_currency": 67,
+      "collateral_token": 67,
+      "collateral_decimals": 67,
+      "chain": 67
+    },
+    "source_sha256": "0ec89052947f6b3254801f7138cd950d9b6a67af01ae916eb68c5dade15a9eb6",
+    "full_archives_downloaded": false
+  },
+  "boundaries": {
+    "providers_called": 0,
+    "production_services_modified": false,
+    "acquisition_repo_modified": false,
+    "metaculus_modified": false,
+    "source_inputs_modified": false,
+    "orders_submitted": 0,
+    "uploads": 0,
+    "deletions": 0,
+    "reviewed_engine_source_runtime_verified": false,
+    "execution_fee_model_certified": false,
+    "complete_polymarket_trades": false,
+    "forecast_or_profitability_certified": false
+  },
+  "remaining_gates": [
+    "Provenance-bound required instrument definitions for a real three-Parquet group",
+    "Exact reviewed engine source build/runtime acceptance",
+    "18-decimal account result aggregation before P&L simulation",
+    "Canonical Polymarket fills and execution/fee semantics before trade-based strategy tests"
+  ]
+}
