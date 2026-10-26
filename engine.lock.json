@@ -1,0 +1,16 @@
+{
+  "schema": "nautilus-engine-lock/1",
+  "upstream_repository": "https://github.com/nautechsystems/nautilus_trader.git",
+  "upstream_branch": "develop",
+  "fork_repository": "https://github.com/chenencc/nautilus_trader.git",
+  "engine_branch": "codex/engine",
+  "commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+  "upstream_base_commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+  "commit_subject": "Fix Polymarket backtest taker fee rounding",
+  "pinned_at": "2026-10-26",
+  "upstream_license": "LGPL-3.0",
+  "local_engine_patches": [],
+  "build_verified": false,
+  "runtime_verified": false,
+  "automatic_upgrades": false
+}

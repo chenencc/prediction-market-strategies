@@ -1,0 +1,9 @@
+{
+  "mode": "research",
+  "engine_lock": "engine.lock.json",
+  "live_execution_enabled": false,
+  "venues": ["POLYMARKET", "PREDICTFUN"],
+  "dataset_revision": null,
+  "strategy": null,
+  "notes": "Bootstrap example only. Dataset and strategy must be explicitly supplied and validated."
+}
