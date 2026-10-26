@@ -6,7 +6,6 @@ are mandatory: there are no venue precision, currency or fee defaults here.
 
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation
 import json
 from pathlib import Path
 import platform
@@ -14,150 +13,20 @@ import threading
 
 from .recording_group import (
     RecordingGroup,
-    InputError,
     require,
     digest,
     file_hash,
 )
 
+from ..adapters.common import (
+    decimal,
+    parameters,
+    binary_instrument,
+    book_snapshot,
+    predict_trade_tick,
+)
+
 _currency_read_lock = threading.RLock()
-
-
-def decimal(value):
-    require(not isinstance(value, (bool, float)), "EXACT_DECIMAL_REQUIRED")
-    try:
-        v = Decimal(str(value))
-    except InvalidOperation:
-        raise InputError("INVALID_DECIMAL") from None
-    require(v.is_finite(), "NONFINITE_DECIMAL")
-    return v
-
-
-def observed(terms, keys, code, convert=lambda x: x):
-    values = [convert(terms[k]) for k in keys if terms.get(k) not in (None, "")]
-    require(values, code)
-    require(all(v == values[0] for v in values), "CONFLICTING_ALIASES:" + code)
-    return values[0]
-
-
-def precision(value):
-    v = decimal(value)
-    require(v == int(v) and 0 <= v <= 16, "INVALID_PRECISION")
-    return int(v)
-
-
-def currency_precision(value):
-    v = decimal(value)
-    require(v == int(v) and 0 <= v <= 18, "INVALID_CURRENCY_PRECISION")
-    return int(v)
-
-
-def fixed(value, places):
-    v = decimal(value)
-    require(
-        v >= 0 and v == v.quantize(Decimal(1).scaleb(-places)),
-        "UNREPRESENTABLE_PRECISION",
-    )
-    return format(v, f".{places}f")
-
-
-def parameters(terms, venue):
-    require(venue in {"polymarket", "predictfun"}, "UNSUPPORTED_VENUE")
-    pp = observed(terms, ("pricePrecision",), "MISSING_PRICE_PRECISION", precision)
-    sp = observed(
-        terms,
-        ("sizePrecision", "quantityPrecision", "decimalPrecision"),
-        "MISSING_QUANTITY_PRECISION",
-        precision,
-    )
-    tick = observed(
-        terms,
-        (
-            "orderPriceMinTickSize",
-            "minimum_tick_size",
-            "priceTick",
-            "tickSize",
-            "minTickSize",
-            "priceIncrement",
-        ),
-        "MISSING_PRICE_TICK",
-        decimal,
-    )
-    step = observed(
-        terms,
-        ("sizeIncrement", "quantityIncrement"),
-        "MISSING_QUANTITY_INCREMENT",
-        decimal,
-    )
-    currency = observed(
-        terms,
-        ("collateralCurrency", "currency", "quoteCurrency", "settlementCurrency"),
-        "MISSING_COLLATERAL_CURRENCY",
-        str,
-    )
-    decimals = observed(
-        terms,
-        ("collateralDecimals", "quoteTokenDecimals"),
-        "MISSING_COLLATERAL_DECIMALS",
-        currency_precision,
-    )
-    require(tick > 0 and step > 0, "NONPOSITIVE_INCREMENT")
-    protocol = (
-        observed(
-            terms,
-            ("version", "protocolVersion", "marketVersion"),
-            "MISSING_PROTOCOL_VERSION",
-            str,
-        )
-        if venue == "polymarket"
-        else None
-    )
-    if venue == "polymarket":
-        require(protocol == "v1", "UNSUPPORTED_POLYMARKET_PROTOCOL")
-    return dict(
-        price_precision=pp,
-        size_precision=sp,
-        price_increment=fixed(tick, pp),
-        size_increment=fixed(step, sp),
-        currency=currency,
-        currency_precision=decimals,
-        protocol=protocol,
-        fee_schedule=terms.get("feeSchedule"),
-        fee_rate_bps=terms.get("feeRateBps"),
-        fees_enabled=terms.get("feesEnabled"),
-        fee_terms={
-            k: terms[k]
-            for k in (
-                "feeSchedule",
-                "feeRateBps",
-                "feesEnabled",
-                "feeType",
-                "makerBaseFee",
-                "takerBaseFee",
-                "makerRebatesFeeShareBps",
-            )
-            if k in terms
-        },
-        collateral_contract_terms={
-            k: terms[k]
-            for k in (
-                "collateralToken",
-                "collateralTokenAddress",
-                "collateralAddress",
-                "quoteToken",
-                "quoteTokenAddress",
-                "settlementToken",
-                "chainId",
-                "chainID",
-                "chain",
-                "exchangeAddress",
-                "negRiskExchangeAddress",
-                "ctfAddress",
-                "conditionalTokensAddress",
-            )
-            if k in terms
-        },
-    )
 
 
 @dataclass
@@ -245,22 +114,9 @@ class NautilusExporter:
 
         require(nt.__version__.startswith("2."), "NAUTILUS_2_RUNTIME_REQUIRED")
         from nautilus_trader.model import (
-            BinaryOption,
-            InstrumentId,
-            Symbol,
-            Currency,
-            CurrencyType,
-            Price,
-            Quantity,
-            AssetClass,
-            BookOrder,
             OrderBookDelta,
             OrderBookDeltas,
-            BookAction,
-            OrderSide,
             RecordFlag,
-            TradeTick,
-            TradeId,
             AggressorSide,
         )
 
@@ -314,14 +170,6 @@ class NautilusExporter:
                     parameters(later, market["venue"]) == p,
                     "INSTRUMENT_EXECUTION_TERMS_CHANGED:" + key,
                 )
-            # Register only observed currencies. No USDC/pUSD or decimal default.
-            cur = Currency(
-                p["currency"],
-                p["currency_precision"],
-                0,
-                p["currency"],
-                CurrencyType.CRYPTO,
-            )
             parents = {
                 str(e["id"])
                 for e in terms.get("events") or []
@@ -343,45 +191,17 @@ class NautilusExporter:
             event_id = next(iter(parents)) if len(parents) == 1 else None
             by_market[key] = []
             for outcome, token in sorted(market["instrument_mapping"].items()):
-                require(isinstance(token, str) and token, "TOKEN_ID_REQUIRED")
-                venue = (
-                    "POLYMARKET" if market["venue"] == "polymarket" else "PREDICTFUN"
-                )
-                symbol = (
-                    (
-                        market["condition_id"]
-                        if market["venue"] == "polymarket"
-                        else market["market_id"]
-                    )
-                    + "-"
-                    + token
-                )
-                ident = InstrumentId.from_str(symbol + "." + venue)
-                info = dict(
-                    source_market_key=key,
-                    source_metadata_revision=first["revision"],
-                    observed_terms=terms,
-                    scheduled_end_not_observed_closure=True,
-                    fee_schedule=terms.get("feeSchedule"),
-                )
-                # A scheduled endDate is not proof of actual trading closure.
-                instrument = BinaryOption(
-                    instrument_id=ident,
-                    raw_symbol=Symbol(token),
-                    asset_class=AssetClass.ALTERNATIVE,
-                    currency=cur,
-                    activation_ns=0,
-                    expiration_ns=0,
-                    price_precision=p["price_precision"],
-                    size_precision=p["size_precision"],
-                    price_increment=Price.from_str(p["price_increment"]),
-                    size_increment=Quantity.from_str(p["size_increment"]),
-                    ts_event=first["received_unix_ns"],
-                    ts_init=first["received_unix_ns"],
+                instrument = binary_instrument(
+                    venue=market["venue"],
+                    market_id=market["market_id"],
+                    condition_id=market["condition_id"],
+                    token=token,
                     outcome=outcome,
-                    description=str(terms.get("question", terms.get("title", key))),
-                    event_id=event_id,
-                    info=info,
+                    terms=terms,
+                    spec=p,
+                    observed_ns=first["received_unix_ns"],
+                    revision=first["revision"],
+                    parent_event_id=event_id,
                 )
                 mapping[key, token] = instrument
                 by_market[key].append(instrument)
@@ -435,55 +255,16 @@ class NautilusExporter:
                     not book.get("derived"),
                     "DERIVED_BOOK_REQUIRES_EXPLICIT_LIQUIDITY_MODEL",
                 )
-                deltas = [OrderBookDelta.clear(instrument.id, 0, event, received)]
-                seen = set()
-                for side, order_side in [
-                    ("bids", OrderSide.BUY),
-                    ("asks", OrderSide.SELL),
-                ]:
-                    for price, size in book[side]:
-                        require(
-                            delta_count + len(deltas) < self.max_deltas,
-                            "EXPORT_DELTA_CAP_REACHED",
-                        )
-                        px, q = decimal(price), decimal(size)
-                        require(
-                            0 <= px <= 1 and q > 0 and (side, px) not in seen,
-                            "INVALID_L2_LEVEL",
-                        )
-                        seen.add((side, px))
-                        require(
-                            px % decimal(p["price_increment"]) == 0,
-                            "LEVEL_OFF_PRICE_TICK",
-                        )
-                        order = BookOrder(
-                            order_side,
-                            Price.from_str(fixed(px, p["price_precision"])),
-                            Quantity.from_str(fixed(q, p["size_precision"])),
-                            0,
-                        )
-                        deltas.append(
-                            OrderBookDelta(
-                                instrument.id,
-                                BookAction.ADD,
-                                order,
-                                int(RecordFlag.F_SNAPSHOT),
-                                0,
-                                event,
-                                received,
-                            )
-                        )
-                last = deltas[-1]
-                deltas[-1] = OrderBookDelta(
-                    instrument.id,
-                    last.action,
-                    last.order,
-                    int(last.flags) | flags,
-                    0,
-                    event,
-                    received,
+                append(
+                    book_snapshot(
+                        instrument,
+                        book["bids"],
+                        book["asks"],
+                        ts_event=event,
+                        ts_init=received,
+                        max_deltas=self.max_deltas - delta_count,
+                    )
                 )
-                append(OrderBookDeltas(instrument.id, deltas))
             elif row.get("book_reset"):
                 report["gaps"].append(
                     dict(
@@ -552,14 +333,15 @@ class NautilusExporter:
                 0 <= decimal(row["price"]) <= 1 and decimal(row["quantity"]) > 0,
                 "INVALID_TRADE_VALUE",
             )
-            tick = TradeTick(
-                instrument.id,
-                Price.from_str(fixed(row["price"], p["price_precision"])),
-                Quantity.from_str(fixed(row["quantity"], p["size_precision"])),
-                side,
-                TradeId("pms-" + digest(identity)[:32]),
-                row["executed_unix_ns"],
-                row["received_unix_ns"],
+            tick = predict_trade_tick(
+                instrument,
+                market_id=row["market_id"],
+                event_key=row["event_key"],
+                price=row["price"],
+                quantity=row["quantity"],
+                side_raw=row["side_raw"],
+                ts_event=row["executed_unix_ns"],
+                ts_init=row["received_unix_ns"],
             )
             append(tick)
             counts["canonical_observed_trades"] += 1
@@ -585,8 +367,6 @@ class NautilusExporter:
         return ExportedGroup(instruments, [x[2] for x in data], report)
 
     def export(self, source, target):
-        from nautilus_trader.persistence import ParquetDataCatalog
-
         target = Path(target).resolve()
         source = Path(source).resolve()
         require(
@@ -594,6 +374,15 @@ class NautilusExporter:
             "OUTPUT_MUST_BE_NEW_AND_INDEPENDENT",
         )
         result = self.convert(source)
+        return self.write_catalog(result, target)
+
+    @staticmethod
+    def write_catalog(result, target):
+        """Write explicit converted objects; source verification remains in their report."""
+        from nautilus_trader.persistence import ParquetDataCatalog
+
+        target = Path(target).resolve()
+        require(not target.exists(), "OUTPUT_MUST_BE_NEW_AND_INDEPENDENT")
         target.mkdir(parents=True)
         (target / "catalog").mkdir()
         catalog = ParquetDataCatalog(str(target / "catalog"))
@@ -632,7 +421,7 @@ class NautilusExporter:
             json.dumps(result.report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         # The engine probe consumes a new catalog reader, not conversion memory.
-        verified = self.read_export(target)
+        verified = NautilusExporter.read_export(target)
         (target / "export-report.json").write_text(
             json.dumps(verified.report, ensure_ascii=False, indent=2), encoding="utf-8"
         )

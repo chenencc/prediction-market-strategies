@@ -1,0 +1,284 @@
+{
+  "schema": "predictfun-offline-adapter-audit/1",
+  "at": "2026-10-26T13:11:19.733627+00:00",
+  "status": "implemented_native_and_three_parquet_compatibility_verified_no_order_replay",
+  "repository": "chenencc/prediction-market-strategies",
+  "branch": "codex/nautilus-exporter",
+  "implementation": {
+    "native_loader": "adapters/predictfun/loader.py",
+    "shared_builders": "adapters/common.py",
+    "native_inputs": [
+      "market metadata",
+      "indexSet=1 orderbook",
+      "matches pages"
+    ],
+    "outputs": [
+      "BinaryOption per native token",
+      "complete native L2 snapshots",
+      "stable observed TradeTicks",
+      "separate per-party fee observations"
+    ],
+    "corrected": "Predict decimalPrecision is quote-grid precision, not size precision; aggregate executions can require wider model price precision",
+    "stable_page_state_atomic": true,
+    "network_clients_added": false,
+    "engine_core_patched": false
+  },
+  "tests": {
+    "unit_passes": 34,
+    "unit_errors": 0,
+    "unit_failures": 0,
+    "lint_passed": true,
+    "four_recorder_formats": [
+      {
+        "task_type": "opening_research",
+        "catalog_cold_readback": true,
+        "engine_iterations": 2,
+        "source_unchanged": true
+      },
+      {
+        "task_type": "cross_platform_pair",
+        "catalog_cold_readback": true,
+        "engine_iterations": 4,
+        "source_unchanged": true
+      },
+      {
+        "task_type": "same_platform_combination",
+        "catalog_cold_readback": true,
+        "engine_iterations": 28,
+        "source_unchanged": true
+      },
+      {
+        "task_type": "cross_sectional",
+        "catalog_cold_readback": true,
+        "engine_iterations": 4,
+        "source_unchanged": true
+      }
+    ],
+    "saved_real_native": {
+      "market_id": "517145",
+      "observations": 10,
+      "canonical_trade_ticks": 10,
+      "pages": [
+        {
+          "counts": {
+            "observations": 5,
+            "canonical_observed_trades": 5
+          },
+          "cursor_present": true
+        },
+        {
+          "counts": {
+            "observations": 5,
+            "canonical_observed_trades": 5
+          },
+          "cursor_present": true
+        }
+      ],
+      "repeat_page_new_ticks": 0,
+      "max_observed_price_decimals": 7,
+      "native_quote_decimal_precision": 3,
+      "model_price_precision": 16,
+      "definition_kind": "research_model",
+      "historical_instrument_constraints_certified": false,
+      "availability_role": "local_file_read_not_original_HTTP",
+      "original_HTTP_clocks_recovered": false,
+      "exact_catalog_readback": true,
+      "engine": {
+        "schema": "nautilus-offline-replay-probe/1",
+        "success": true,
+        "instruments": 2,
+        "input_records": 10,
+        "iterations": 10,
+        "total_events": null,
+        "total_orders": null,
+        "independent_l2_replay": {
+          "517145-4950859129329245818703460647431266210093445596818722190754139620094072648326.PREDICTFUN": {
+            "best_bid": null,
+            "best_ask": null
+          },
+          "517145-82834237112733184512183880021147841464788266702524487642496417565156474914421.PREDICTFUN": {
+            "best_bid": null,
+            "best_ask": null
+          }
+        },
+        "account_result_aggregation_skipped": true,
+        "account_result_limitation": "installed wheel f64 aggregation cannot handle currency precision above 16",
+        "no_strategy_attached": true,
+        "trade_based_fills_enabled": false,
+        "profitability_tested": false,
+        "fee_model": "explicit_zero_for_no_order_plumbing_only_not_a_venue_fee_claim",
+        "source_availability_clocks_preserved": true,
+        "venue_book_types": {
+          "PREDICTFUN": {
+            "book_type": "L1_MBP",
+            "l2_inputs_complete": false
+          }
+        },
+        "l2_execution_inputs_complete": false
+      },
+      "fee_observations": 22,
+      "chain_verified": false
+    },
+    "synthetic_native": {
+      "catalog_readback": true,
+      "engine": {
+        "schema": "nautilus-offline-replay-probe/1",
+        "success": true,
+        "instruments": 2,
+        "input_records": 2,
+        "iterations": 2,
+        "total_events": null,
+        "total_orders": null,
+        "independent_l2_replay": {
+          "517145-10001.PREDICTFUN": {
+            "best_bid": "0.491000000000",
+            "best_ask": "0.492000000000"
+          },
+          "517145-10002.PREDICTFUN": {
+            "best_bid": null,
+            "best_ask": null
+          }
+        },
+        "account_result_aggregation_skipped": true,
+        "account_result_limitation": "installed wheel f64 aggregation cannot handle currency precision above 16",
+        "no_strategy_attached": true,
+        "trade_based_fills_enabled": false,
+        "profitability_tested": false,
+        "fee_model": "explicit_zero_for_no_order_plumbing_only_not_a_venue_fee_claim",
+        "source_availability_clocks_preserved": true,
+        "venue_book_types": {
+          "PREDICTFUN": {
+            "book_type": "L2_MBP",
+            "l2_inputs_complete": true
+          }
+        },
+        "l2_execution_inputs_complete": true
+      }
+    }
+  },
+  "originals": {
+    "hashes": {
+      "predict-matches-page1.json.gz": "2ded084dd9393e9dbbf6de3afded6ed7740e9ab0ece46931a12168ffd8d68175",
+      "predict-matches-page2.json.gz": "4575adea8b16ea933beaac84615db1979f4dd4fe71d0031e20b3be58cf70ddd2"
+    },
+    "unchanged": true
+  },
+  "initial_failure": {
+    "reason": "Trade-only data rejected by L2_MBP probe because no orderbooks existed",
+    "output_retained": "predictfun-adapter-validation-20261026/saved-public-trades",
+    "resolution": "No-order probe explicitly selects L1 for pure/partial book coverage and reports incomplete L2 inputs; no complementary book synthesized"
+  },
+  "primary_sources": [
+    {
+      "repository": "nautechsystems/nautilus_trader",
+      "commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+      "path": "crates/adapters/polymarket/src/http/parse.rs",
+      "url": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/698d5cc8f7012bdc111b060e97de3210ee0a6002/crates/adapters/polymarket/src/http/parse.rs",
+      "sha256": "237f59c0bbee5b1e3b7cd1a0d549373b2b7e028ce2ce3007c443020123bd31b1"
+    },
+    {
+      "repository": "nautechsystems/nautilus_trader",
+      "commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+      "path": "crates/adapters/polymarket/src/websocket/parse.rs",
+      "url": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/698d5cc8f7012bdc111b060e97de3210ee0a6002/crates/adapters/polymarket/src/websocket/parse.rs",
+      "sha256": "ab715a710626557feec3487b4394af26ed0c9685db395d5f4ed1f6166090b408"
+    },
+    {
+      "repository": "nautechsystems/nautilus_trader",
+      "commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+      "path": "crates/adapters/polymarket/src/models.rs",
+      "url": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/698d5cc8f7012bdc111b060e97de3210ee0a6002/crates/adapters/polymarket/src/models.rs",
+      "sha256": "1b9aee56ef1154513b0b46388b3ac861934265d4006e1dc4d588f9035c007eba"
+    },
+    {
+      "repository": "nautechsystems/nautilus_trader",
+      "commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+      "path": "crates/model/src/instruments/binary_option.rs",
+      "url": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/698d5cc8f7012bdc111b060e97de3210ee0a6002/crates/model/src/instruments/binary_option.rs",
+      "sha256": "173c62f668e20d77d64e0f1903b9852fe6150ab14e324be167233eb5980c6e51"
+    },
+    {
+      "repository": "PredictDotFun/sdk",
+      "commit": "5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486",
+      "path": "src/OrderBuilder.ts",
+      "url": "https://raw.githubusercontent.com/PredictDotFun/sdk/5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486/src/OrderBuilder.ts",
+      "sha256": "fa2a10829fe1bd99e68edfb5f488a2faf8ef0a1fe11b48c95fa3c3b1762c1cbd"
+    },
+    {
+      "repository": "PredictDotFun/sdk",
+      "commit": "5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486",
+      "path": "src/Constants.ts",
+      "url": "https://raw.githubusercontent.com/PredictDotFun/sdk/5ff2b4a1c54cbbeb0fd661e17246cd12a9af8486/src/Constants.ts",
+      "sha256": "5b0ecd2a74bb698c0a2f0cd2db50970b8683516c1dc70ca1cccddb54a9cee23c"
+    },
+    {
+      "repository": "PredictDotFun/sdk-python",
+      "commit": "6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1",
+      "path": "src/predict_sdk/constants.py",
+      "url": "https://raw.githubusercontent.com/PredictDotFun/sdk-python/6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1/src/predict_sdk/constants.py",
+      "sha256": "a427e5c974b7fdbbf58b183af8065ad0e80ce1a2b017d15f3be686645e9fd9b2"
+    },
+    {
+      "repository": "PredictDotFun/sdk-python",
+      "commit": "6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1",
+      "path": "src/predict_sdk/_internal/utils.py",
+      "url": "https://raw.githubusercontent.com/PredictDotFun/sdk-python/6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1/src/predict_sdk/_internal/utils.py",
+      "sha256": "7973333f4ded485ed139a10aaa1ba3f2947eec84d3d2dd375f2c907d74a57803"
+    },
+    {
+      "repository": "PredictDotFun/sdk-python",
+      "commit": "6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1",
+      "path": "src/predict_sdk/types.py",
+      "url": "https://raw.githubusercontent.com/PredictDotFun/sdk-python/6da1708e1f3a9341f5cfd8d0b91bb66c8f43bef1/src/predict_sdk/types.py",
+      "sha256": "cec1d8ba303e3d6b995f6d93c7e423d6ef118a5ed0cce4edd5ae825cc478864a"
+    }
+  ],
+  "unsupported_reference_reads": [
+    {
+      "repository": "nautechsystems/nautilus_trader",
+      "path": "crates/adapters/polymarket/src/loaders.rs",
+      "error": "HTTPError:HTTP Error 404: Not Found"
+    }
+  ],
+  "runtime": {
+    "schema": "nautilus-compatibility-runtime/1",
+    "purpose": "Explicit offline exporter compatibility probe, separate from engine.lock.json",
+    "python": "3.13.14",
+    "platform": "win_amd64",
+    "nautilus_trader": "2.0.0rc8.dev20261025",
+    "engine_commit": "b23139911fd9fed82aed2811c5a8a373202b9480",
+    "reported_engine_commit_prefix": "b23139911fd9",
+    "wheel_url": "https://packages.nautechsystems.io/simple/nautilus-trader/nautilus_trader-2.0.0rc8.dev20261025-cp313-cp313-win_amd64.whl",
+    "wheel_sha256": "ef2391d1b03b96c8231cc8ff20490a21e195cdbb2fad6ffcfd9a51e87379e7c7",
+    "pyarrow": "26.0.0",
+    "desired_engine_commit": "698d5cc8f7012bdc111b060e97de3210ee0a6002",
+    "desired_engine_runtime_verified": false,
+    "desired_source_ci_run": "https://github.com/nautechsystems/nautilus_trader/actions/runs/40309612595",
+    "desired_source_ci_conclusion_at_check": "failure",
+    "desired_source_ci_artifacts_at_check": 0,
+    "automatic_upgrades": false,
+    "limitations": [
+      "This wheel is an older source than the reviewed engine baseline; passing probes do not verify that baseline",
+      "Windows account result aggregation aborts for 18-decimal collateral; data-only probe skips that path",
+      "No strategy orders, execution/fee simulation, profitability or live execution certified"
+    ]
+  },
+  "limitations": [
+    "Caller definitions are market/time-bound but not independently verified; saved-real trial used explicit research display definitions",
+    "Saved-real availability was local file-read time; original HTTP times were not reconstructed",
+    "Native NO matches are preserved; an absent NO book is not synthesized as independent executable liquidity",
+    "Native fee observations are returned separately and remain in original source pages; TradeTick has no fee field",
+    "Current Windows compatibility wheel still skips 18-decimal account result aggregation; no P&L acceptance",
+    "No complete history, chain settlement, fee simulation, live orders or profitable strategy certified"
+  ],
+  "protected": {
+    "production_changed": false,
+    "metaculus_changed": false,
+    "recorder_repository_modified": false,
+    "market_rpc_model_hf_provider_calls": 0,
+    "venue_credentials_read_or_copied": false,
+    "orders_submitted": 0,
+    "source_payloads_uploaded_or_deleted": false,
+    "engine_source_pin_changed": false
+  }
+}

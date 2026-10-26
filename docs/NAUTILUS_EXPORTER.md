@@ -109,6 +109,12 @@ inferred from the number of digits in an observed price, minimum order size,
 current venue conventions, or a default USDC/pUSD definition. Quantity minimum
 and quantity increment have different meanings.
 
+Predict's native `decimalPrecision` describes the quote grid. The shared adapter
+now handles it separately from quantity and aggregate-trade representation;
+see [Predict native compatibility](PREDICTFUN.md). The native JSON path also
+accepts explicit time/market-bound definition inputs, which do not silently
+override missing historical fields in archived three-Parquet groups.
+
 All retained terms, fee schedules, constraints and source metadata revision are
 kept in `BinaryOption.info` and the report. A scheduled closing date does not
 prove observed trading closure: activation/expiration constraints are not
@@ -142,6 +148,9 @@ disables trade-based fills, and uses an explicit zero fee model only because it
 submits no orders. It checks input-consumption iterations and independently
 replays L2 books. This is data plumbing, not a fee, strategy or P&L acceptance.
 Native `total_events` is an order/account event count, not the data input count.
+For trade-only or partially book-covered venues it uses L1 for data ingestion,
+reporting incomplete L2 inputs; it does not invent missing books. Full native
+snapshot coverage continues to use L2.
 
 The inspected Windows wheel aborts when aggregating an account with 18-decimal
 collateral into floating-point result statistics. Exact currencies survive

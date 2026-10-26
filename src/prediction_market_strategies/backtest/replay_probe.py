@@ -23,12 +23,32 @@ def replay_probe(exported):
     expected = {}
     books = {}
     currencies = defaultdict(dict)
+    data_ids = {str(v.instrument_id) for v in exported.data}
+    book_ids = {
+        str(v.instrument_id)
+        for v in exported.data
+        if type(v).__name__ == "OrderBookDeltas"
+    }
+    venue_book_types = {}
     try:
         for instrument in exported.instruments:
             currencies[str(instrument.id.venue)][str(instrument.currency)] = (
                 instrument.currency
             )
         for venue, values in currencies.items():
+            active = {
+                str(i.id)
+                for i in exported.instruments
+                if str(i.id.venue) == venue and str(i.id) in data_ids
+            }
+            # L2 matching requires books for every active instrument, including
+            # outcomes with trade ticks. Use L1 only for this no-order plumbing
+            # probe when a native book is absent; never invent complementary depth.
+            l2_complete = bool(active) and active <= book_ids
+            venue_book_type = BookType.L2_MBP if l2_complete else BookType.L1_MBP
+            venue_book_types[venue] = dict(
+                book_type=str(venue_book_type), l2_inputs_complete=l2_complete
+            )
             engine.add_venue(
                 venue=Venue(venue),
                 oms_type=OmsType.NETTING,
@@ -36,7 +56,7 @@ def replay_probe(exported):
                 # A data-only probe needs no funding. Raw zero is exact for
                 # observed 18-decimal collateral too; no float/precision cast.
                 starting_balances=[Money.from_raw(0, c) for c in values.values()],
-                book_type=BookType.L2_MBP,
+                book_type=venue_book_type,
                 trade_execution=False,
                 bar_execution=False,
                 queue_position=False,
@@ -89,6 +109,10 @@ def replay_probe(exported):
             profitability_tested=False,
             fee_model="explicit_zero_for_no_order_plumbing_only_not_a_venue_fee_claim",
             source_availability_clocks_preserved=True,
+            venue_book_types=venue_book_types,
+            l2_execution_inputs_complete=all(
+                v["l2_inputs_complete"] for v in venue_book_types.values()
+            ),
         )
     finally:
         engine.dispose()
