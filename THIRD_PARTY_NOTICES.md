@@ -10,8 +10,19 @@ binary-pair strategy concept and entry checks from:
 * License: GNU Lesser General Public License, version 3.0 or later.
 * License text: https://www.gnu.org/licenses/lgpl-3.0.html
 
-Our adapted strategy file retains this license. It was rewritten for the
+Our adapted strategy file and its extracted `binary_market.py` lifecycle retain
+this license. It was rewritten for the
 installed 2.x API, exact Decimal arithmetic, observed fees, stale-book checks,
 delayed decisions, price-capped IOC orders and explicit residual handling.
 This notice does not relicense other dependencies or declare all upstream
 repository files MIT. See the dependency license files for NautilusTrader.
+
+## Depth-maker behavior reference
+
+The independently implemented `strategies/depth_maker.py` policy was informed
+by the public README and depth-tier behavior in
+https://github.com/ccjingeth/predict-fun-marketmaker at commit
+`9346c7abefaff73758586e6cb8d7193fcbc79afb`. That repository's `package.json`
+declares MIT; the inspected root has no standalone LICENSE file. No TypeScript,
+wallet, desktop or provider runtime from that project is copied or executed.
+Our native adapter uses the LGPL shared lifecycle and retains its SPDX notice.

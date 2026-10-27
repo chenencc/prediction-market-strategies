@@ -44,6 +44,9 @@ orderbook and matches JSON through the same conversion primitives.
 The optional [local binary-pair paper experiment](docs/PAPER_TRADING.md) uses
 public Polymarket L2 data and a Sandbox execution client with virtual funds.
 It never deploys or sends real exchange orders.
+The [depth-tier maker](docs/DEPTH_MAKER.md), independently based on
+`ccjingeth/predict-fun-marketmaker`, shares that local paper infrastructure and
+adds passive quoting, acknowledgement-gated replacement and bounded fill hedges.
 Run `python -m unittest discover -s tests -v` after installing its explicit runtime.
 The inspected compatibility runtime is pinned separately in
 `runtime.compatibility.lock.json`; it **does not verify** the newer source in

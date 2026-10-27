@@ -41,3 +41,8 @@ An explicit [local paper runner](PAPER_TRADING.md) now attaches a complementary
 binary strategy to public Polymarket data and a simulated execution client.
 There is no real execution client. Predict.fun remains offline-only.
 No execution or network work is enabled by import.
+
+`binary_market.py` owns shared native snapshot/identity/event handling.
+The [depth maker](DEPTH_MAKER.md) separates its pure quote policy from its
+Nautilus state machine and reuses the existing Sandbox and archive runner.
+Rewards are constraints and provenance, not assumed cash earnings.

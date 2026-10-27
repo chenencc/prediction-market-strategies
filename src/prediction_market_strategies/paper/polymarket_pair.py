@@ -59,6 +59,47 @@ def artifact_inventory(root):
     }
 
 
+async def public_preflight(factory, *, stage, receipts):
+    """Bound only transient public GET failures; never retry an order command."""
+    for attempt in range(1, 4):
+        try:
+            result = await asyncio.wait_for(factory(), timeout=25)
+            receipts.append(dict(stage=stage, attempt=attempt, status="ok"))
+            return result
+        except Exception as exc:
+            detail = str(exc).lower()
+            permanent = any(
+                s in detail
+                for s in ("404", "400 bad", "401", "403", "invalid", "mismatch")
+            )
+            transient = isinstance(exc, TimeoutError) or any(
+                s in detail
+                for s in (
+                    "tls",
+                    "handshake",
+                    "timeout",
+                    "timed out",
+                    "connection",
+                    "transport",
+                    "502",
+                    "503",
+                    "504",
+                    "429",
+                )
+            )
+            receipts.append(
+                dict(
+                    stage=stage,
+                    attempt=attempt,
+                    status="failed",
+                    error=type(exc).__name__ + ": " + str(exc),
+                )
+            )
+            if permanent or not transient or attempt == 3:
+                raise
+            await asyncio.sleep(0.2 * attempt)
+
+
 def archive_inputs(root, instruments, batches):
     """Preserve native inputs and verify physical cold-read event semantics."""
     from collections import defaultdict
@@ -188,11 +229,15 @@ async def run(args):
     )
     from ..strategies.binary_pair_arbitrage import BinaryPairPaperStrategy, PairRules
 
+    is_maker = getattr(args, "strategy", "binary-pair") == "depth-maker"
+
     root = Path(args.output).resolve()
     root.mkdir(parents=True, exist_ok=False)
     started_ns = time.time_ns()
     report = dict(
-        schema="polymarket-local-pair-paper/1",
+        schema="polymarket-local-depth-maker-paper/1"
+        if is_maker
+        else "polymarket-local-pair-paper/1",
         status="initializing",
         started_ns=started_ns,
         slug=args.slug,
@@ -218,10 +263,39 @@ async def run(args):
         ),
     )
     from ..strategies import binary_pair_arbitrage
+    from ..strategies import binary_market
+
+    source_files = [
+        Path(__file__),
+        Path(binary_pair_arbitrage.__file__),
+        Path(binary_market.__file__),
+    ]
+    if is_maker:
+        from ..strategies import depth_maker, depth_maker_nautilus
+        from . import fees, rewards
+
+        source_files += [
+            Path(m.__file__) for m in [depth_maker, depth_maker_nautilus, fees, rewards]
+        ]
+        report["source_strategy"] = dict(
+            repository="ccjingeth/predict-fun-marketmaker",
+            commit="9346c7abefaff73758586e6cb8d7193fcbc79afb",
+            implementation="independent Python depth-tier policy, not a wholesale bot port",
+            upstream_code_executed=False,
+        )
+        report["limits"] = dict(
+            seconds=args.seconds, one_market=True, max_quote_cycles=5, max_orders=30
+        )
+        report["simulation"].update(
+            decision_delay_ms=None,
+            min_requote_interval_ms=2000,
+            passive_touch_fill_assumed=False,
+            rewards_or_rebates_credited=False,
+            native_fee_model="PolymarketNoRewardFeeModel",
+        )
 
     report["local_source_sha256"] = {
-        p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in [Path(__file__), Path(binary_pair_arbitrage.__file__)]
+        p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in source_files
     }
     # Rust WebSocket transport does not necessarily inherit Python/system
     # proxies. Reuse local configuration without saving a proxy URL/credentials.
@@ -232,12 +306,14 @@ async def run(args):
     node, task, strategy, cache, handle = None, None, None, None, None
     try:
         instruments = []
+        report["metadata_attempts"] = []
         for index in (0, 1):
-            loader = await asyncio.wait_for(
-                PolymarketDataLoader.from_market_slug(
+            loader = await public_preflight(
+                lambda: PolymarketDataLoader.from_market_slug(
                     args.slug, token_index=index, timeout_secs=15
                 ),
-                timeout=25,
+                stage="native_outcome_" + str(index),
+                receipts=report["metadata_attempts"],
             )
             instruments.append(loader.instrument)
         if any(i.outcome.lower() not in {"yes", "no"} for i in instruments):
@@ -248,7 +324,38 @@ async def run(args):
                 "installed wheel account path unsafe for this collateral precision"
             )
         save_json(root / "initial-instruments.json", [i.to_dict() for i in instruments])
-        rules = PairRules()
+        fee_model, fill_model, reward_terms = PolymarketFeeModel(), None, None
+        if is_maker:
+            from .fees import PolymarketNoRewardFeeModel, ThroughPriceFillModel
+            from .rewards import fetch
+            from ..strategies.depth_maker import MakerRules
+
+            info = instruments[0].info
+            reward_terms, reward_receipt = await public_preflight(
+                lambda: asyncio.to_thread(
+                    fetch,
+                    args.slug,
+                    condition_id=info["condition_id"],
+                    market_id=info["market_id"],
+                ),
+                stage="public_reward_terms",
+                receipts=report["metadata_attempts"],
+            )
+            save_json(root / "reward-preflight.json", reward_receipt)
+            report["observed_reward_terms"] = (
+                asdict(reward_terms) if reward_terms else None
+            )
+            rules = MakerRules(
+                mode=args.maker_mode,
+                quantity=Decimal(args.maker_quantity),
+                hedge_mode=args.hedge_mode,
+            )
+            fee_model, fill_model = (
+                PolymarketNoRewardFeeModel(),
+                ThroughPriceFillModel(),
+            )
+        else:
+            rules = PairRules()
         report["rules"] = asdict(rules)
         node = (
             LiveNode.builder(
@@ -297,7 +404,8 @@ async def run(args):
                     trade_execution=False,
                     liquidity_consumption=True,
                     queue_position=False,
-                    fee_model=PolymarketFeeModel(),
+                    fee_model=fee_model,
+                    fill_model=fill_model,
                     latency_model=StaticLatencyModel(
                         insert_latency_nanos=100_000_000,
                         cancel_latency_nanos=100_000_000,
@@ -306,7 +414,14 @@ async def run(args):
             )
             .build()
         )
-        strategy = BinaryPairPaperStrategy([i.id for i in instruments], rules)
+        if is_maker:
+            from ..strategies.depth_maker_nautilus import DepthMakerPaperStrategy
+
+            strategy = DepthMakerPaperStrategy(
+                [i.id for i in instruments], rules, reward_terms
+            )
+        else:
+            strategy = BinaryPairPaperStrategy([i.id for i in instruments], rules)
         node.add_strategy(strategy)
         cache, handle = node.cache, node.handle()
         task = asyncio.create_task(node.run_async())
@@ -359,6 +474,23 @@ async def run(args):
         if strategy and cache:
             try:
                 report["result"] = summarize(strategy, cache, currency=currency)
+                if (
+                    report["result"]["cash_total"] is None
+                    or report["result"]["cash_free"] is None
+                ):
+                    report.update(
+                        status="failed", error="virtual account was not initialized"
+                    )
+                if is_maker:
+                    report["maker_result"] = dict(
+                        quote_cycles=strategy.quote_cycles,
+                        submitted_orders=strategy.total_orders,
+                        cooldown_until_ns=strategy.protection.cooldown_until_ns,
+                        blacklist_until_ns=strategy.protection.blacklist_until_ns,
+                        rewards_earned=None,
+                        reward_eligibility_not_exchange_verified=True,
+                        passive_queue_position_not_verified=True,
+                    )
                 save_json(root / "events.json", strategy.records)
                 save_json(root / "observations.json", strategy.samples)
                 save_json(
@@ -414,11 +546,21 @@ async def run(args):
     return 0 if report["status"] == "completed" else 1
 
 
-def main():
+def main(*, default_strategy="binary-pair"):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--slug", required=True)
     parser.add_argument("--seconds", type=int, default=180)
     parser.add_argument("--output", required=True)
+    parser.add_argument(
+        "--strategy", choices=["binary-pair", "depth-maker"], default=default_strategy
+    )
+    parser.add_argument(
+        "--maker-mode", choices=["conservative", "aggressive"], default="conservative"
+    )
+    parser.add_argument("--maker-quantity", default="10")
+    parser.add_argument(
+        "--hedge-mode", choices=["FLATTEN", "BUY_OPPOSITE"], default="FLATTEN"
+    )
     args = parser.parse_args()
     if not 30 <= args.seconds <= 600:
         parser.error("finite local trials must last 30..600 seconds")

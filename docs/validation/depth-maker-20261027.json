@@ -1,0 +1,51 @@
+{
+  "schema": "depth-maker-implementation-validation/1",
+  "date": "2026-10-27",
+  "source_reference": {
+    "repo": "ccjingeth/predict-fun-marketmaker",
+    "commit": "9346c7abefaff73758586e6cb8d7193fcbc79afb",
+    "implementation": "independent Python depth-tier main policy; upstream code not executed"
+  },
+  "local_only": true,
+  "no_server_deployment": true,
+  "no_real_execution_client": true,
+  "offline_tests_passed": 71,
+  "full_regression_includes_previous_46": true,
+  "ruff_passed": true,
+  "native_callback_errors": false,
+  "validated_code_sha256": {
+    "strategies/binary_market.py": "0326bd5f3da9cb95e35063f1b1ac369578e48c128f3c24eded5208d21420b22e",
+    "strategies/binary_pair_arbitrage.py": "8ebd91b601862d5c06b25e42863c88b40215ce8da51d8e2aa0cabd1449ac4965",
+    "strategies/depth_maker.py": "34666b43d34a4feac40af7728e3bdb7bf94e44d467226b80a584580349790861",
+    "strategies/depth_maker_nautilus.py": "ac1eaa4828408dd800be68191579b4b6a076d7c3a3113d1f6f1d4c436161e254",
+    "paper/fees.py": "a3cda7364c82e66e858ba3c5885575135c9a5d84d288b6025ea58d91b92d7eaf",
+    "paper/rewards.py": "6166919e5747665fb1851d44ee578b38edc2bb5466e7f09bc285a8b13f13254d",
+    "paper/polymarket_pair.py": "6529a2ae68c62237d809510eceeec125a6de4329c6ee7e1619a341f236dc58ec",
+    "paper/polymarket_maker.py": "92c2bdba2f34df6ee5f6bee24f4e98f6dad8ef750bb5a32c68b1b63441a78b09"
+  },
+  "features": [
+    "conservative/aggressive depth tiers and validated gap insertion",
+    "explicit per-venue reward basis and exact market binding",
+    "held-inventory-only sells and hedge/cash reserves",
+    "terminal-acknowledgement-gated replacement",
+    "bounded flatten and opposite-token hedges, partial fills and dust blockage",
+    "cooldown/blacklist and real duplicate fill protection",
+    "no assumed at-touch passive fills or rebate cash",
+    "shared callback fail-closed lifecycle and archive readback"
+  ],
+  "real_time_trial": "blocked in public metadata TLS/timeout; no new book or order acceptance proof",
+  "saved_real_replay": {
+    "success": true,
+    "book_batches": 136,
+    "orders": 0,
+    "rejection": "candidate adjusted-midpoint distance 0.055 exceeds saved reward band 0.045",
+    "semantic_catalog_readback": true,
+    "metadata_clock_role": "retained local file last-write upper bound, not measured HTTP clock or exchange-current allocation proof",
+    "no_new_network": true
+  },
+  "limitations": [
+    "Compatibility wheel b23139911fd9; desired engine.lock 698d5cc8 runtime is not certified",
+    "Predict native loader/policy inputs remain offline; no Predict live client or 18-decimal account execution certified",
+    "No new live maker fill, actual rewards, calibrated queue, exchange fee debit, settlement, profitability or atomic execution proof"
+  ]
+}
