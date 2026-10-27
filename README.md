@@ -41,6 +41,9 @@ readback. It supports all four task/group shapes without importing the recorder.
 See [NautilusExporter usage, validation and limitations](docs/NAUTILUS_EXPORTER.md).
 The [Predict.fun native-format loader](docs/PREDICTFUN.md) also reads saved market,
 orderbook and matches JSON through the same conversion primitives.
+The optional [local binary-pair paper experiment](docs/PAPER_TRADING.md) uses
+public Polymarket L2 data and a Sandbox execution client with virtual funds.
+It never deploys or sends real exchange orders.
 Run `python -m unittest discover -s tests -v` after installing its explicit runtime.
 The inspected compatibility runtime is pinned separately in
 `runtime.compatibility.lock.json`; it **does not verify** the newer source in

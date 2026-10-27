@@ -36,6 +36,8 @@ remain explicit unknowns.
 
 The offline exporter has synthetic recorder-format catalog/readback/engine
 validation. Real metadata completeness and exact engine-source validation remain
-separate gates; see [exporter validation](NAUTILUS_EXPORTER.md). No strategies or
-trading clients are implemented. No live execution or network work is enabled
-by import.
+separate gates; see [exporter validation](NAUTILUS_EXPORTER.md).
+An explicit [local paper runner](PAPER_TRADING.md) now attaches a complementary
+binary strategy to public Polymarket data and a simulated execution client.
+There is no real execution client. Predict.fun remains offline-only.
+No execution or network work is enabled by import.

@@ -1,6 +1,6 @@
 {
   "schema": "nautilus-compatibility-runtime/1",
-  "purpose": "Explicit offline exporter compatibility probe, separate from engine.lock.json",
+  "purpose": "Explicit exporter and bounded local paper compatibility probes, separate from engine.lock.json",
   "python": "3.13.14",
   "platform": "win_amd64",
   "nautilus_trader": "2.0.0rc8.dev20261025",
@@ -18,6 +18,6 @@
   "limitations": [
     "This wheel is an older source than the reviewed engine baseline; passing probes do not verify that baseline",
     "Windows account result aggregation aborts for 18-decimal collateral; data-only probe skips that path",
-    "No strategy orders, execution/fee simulation, profitability or live execution certified"
+    "Bounded synthetic strategy matching and local Sandbox connectivity are separate probes; real-feed fills, exchange-actual fees/latency, profitability and live execution are not certified"
   ]
 }
