@@ -203,6 +203,18 @@ class BinaryMarketPaperStrategy(Strategy):
         snapshot = bool(
             deltas.deltas and int(deltas.deltas[-1].flags) & int(RecordFlag.F_SNAPSHOT)
         )
+        control_clear = not snapshot and any(
+            str(d.action) == "CLEAR" for d in deltas.deltas
+        )
+        if control_clear:
+            # Imported gap/terminal controls invalidate depth and resting
+            # orders. Ordinary changes cannot re-arm after a lost connection.
+            self.cancel_all_orders(ident)
+            self.native_books[ident].reset()
+            self.views.pop(ident, None)
+            self.candidate_ns = None
+            self.record("source_book_invalidated", instrument=str(ident))
+            return
         if ident not in self.views and not snapshot:
             self.counts["delta_before_snapshot"] += 1
             return

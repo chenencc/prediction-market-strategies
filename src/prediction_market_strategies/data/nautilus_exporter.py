@@ -377,7 +377,7 @@ class NautilusExporter:
         return self.write_catalog(result, target)
 
     @staticmethod
-    def write_catalog(result, target):
+    def write_catalog(result, target, *, exact_spill=False):
         """Write explicit converted objects; source verification remains in their report."""
         from nautilus_trader.persistence import ParquetDataCatalog
 
@@ -387,14 +387,114 @@ class NautilusExporter:
         (target / "catalog").mkdir()
         catalog = ParquetDataCatalog(str(target / "catalog"))
         catalog.write_instruments(result.instruments)
+        overflow = []
+        storage_data = result.data
+        if exact_spill:
+            # The installed compatibility wheel accepts 18-place model objects
+            # but its native Arrow catalog has a hard scale-16 cap. Rescale
+            # ONLY exactly representable numbers. Keep whole overflow events
+            # in a hash-bound exact sidecar, rehydrated by our private reader.
+            from decimal import Decimal
+            from nautilus_trader.model import (
+                Price,
+                Quantity,
+                BookOrder,
+                OrderBookDelta,
+                OrderBookDeltas,
+                TradeTick,
+            )
+
+            def fits(number):
+                v = number.as_decimal()
+                return v == v.quantize(Decimal("0.0000000000000001"))
+
+            def number(obj, cls):
+                return cls.from_str(format(obj.as_decimal(), ".16f"))
+
+            storage_data = []
+            for event in result.data:
+                if type(event).__name__ == "TradeTick":
+                    valid = fits(event.price) and fits(event.size)
+                    if valid:
+                        stored = TradeTick(
+                            event.instrument_id,
+                            number(event.price, Price),
+                            number(event.size, Quantity),
+                            event.aggressor_side,
+                            event.trade_id,
+                            event.ts_event,
+                            event.ts_init,
+                        )
+                else:
+                    valid = all(
+                        str(d.action) == "CLEAR"
+                        or (fits(d.order.price) and fits(d.order.size))
+                        for d in event.deltas
+                    )
+                    if valid:
+                        stored = OrderBookDeltas(
+                            event.instrument_id,
+                            [
+                                OrderBookDelta(
+                                    d.instrument_id,
+                                    d.action,
+                                    d.order
+                                    if str(d.action) == "CLEAR"
+                                    else BookOrder(
+                                        d.order.side,
+                                        number(d.order.price, Price),
+                                        number(d.order.size, Quantity),
+                                        d.order.order_id,
+                                    ),
+                                    d.flags,
+                                    d.sequence,
+                                    d.ts_event,
+                                    d.ts_init,
+                                )
+                                for d in event.deltas
+                            ],
+                        )
+                if valid:
+                    storage_data.append(stored)
+                else:
+                    overflow.append(
+                        dict(
+                            event_hash=event_hash(event),
+                            event_type=type(event).__name__,
+                            event_json=json.dumps(
+                                event.to_dict(), sort_keys=True, separators=(",", ":")
+                            ),
+                        )
+                    )
+            if overflow:
+                import pyarrow as pa
+                import pyarrow.parquet as pq
+
+                pq.write_table(
+                    pa.Table.from_pylist(overflow),
+                    target / "exact-overflow.parquet",
+                    compression="zstd",
+                    write_page_checksum=True,
+                )
+            result.report["native_catalog_precision_contract"] = dict(
+                native_max_scale=16,
+                overflow_events=len(overflow),
+                private_reader_required=bool(overflow),
+                rounding_performed=False,
+                engine_objects_support_18_places=True,
+                standalone_native_catalog_complete=not overflow,
+                sidecar_file="exact-overflow.parquet" if overflow else None,
+            )
         # Flatten batches only for catalog storage; F_LAST preserves boundaries.
         deltas = [
             delta
-            for value in result.data
+            for value in storage_data
             if type(value).__name__ == "OrderBookDeltas"
             for delta in value.deltas
         ]
-        trades = [value for value in result.data if type(value).__name__ == "TradeTick"]
+        trades = [
+            value for value in storage_data if type(value).__name__ == "TradeTick"
+        ]
         # Nautilus 2.x catalogs require one instrument identity per write.
         for values, write in [
             (deltas, catalog.write_order_book_deltas),
@@ -417,6 +517,11 @@ class NautilusExporter:
             for p in sorted((target / "catalog").rglob("*"))
             if p.is_file()
         }
+        if overflow:
+            p = target / "exact-overflow.parquet"
+            result.report["catalog_files"][p.name] = dict(
+                bytes=p.stat().st_size, sha256=file_hash(p)
+            )
         (target / "export-report.json").write_text(
             json.dumps(result.report, ensure_ascii=False, indent=2), encoding="utf-8"
         )
@@ -434,13 +539,15 @@ class NautilusExporter:
 
         target = Path(target).resolve()
         report = json.loads((target / "export-report.json").read_text(encoding="utf-8"))
+        expected_files = {
+            p.relative_to(target).as_posix()
+            for p in (target / "catalog").rglob("*")
+            if p.is_file()
+        }
+        if (target / "exact-overflow.parquet").is_file():
+            expected_files.add("exact-overflow.parquet")
         require(
-            {
-                p.relative_to(target).as_posix()
-                for p in (target / "catalog").rglob("*")
-                if p.is_file()
-            }
-            == set(report["catalog_files"]),
+            expected_files == set(report["catalog_files"]),
             "CATALOG_FILE_SET_CHANGED",
         )
         for name, entry in report["catalog_files"].items():
@@ -502,6 +609,90 @@ class NautilusExporter:
                 events.append(OrderBookDeltas(row.instrument_id, batch))
         require(not pending, "CATALOG_PARTIAL_BOOK_BATCH")
         events.extend(catalog.query_trade_ticks())
+        if (target / "exact-overflow.parquet").is_file():
+            import pyarrow.parquet as pq
+            from nautilus_trader.model import TradeTick
+
+            classes = {"TradeTick": TradeTick, "OrderBookDeltas": OrderBookDeltas}
+            for row in (
+                pq.ParquetFile(
+                    target / "exact-overflow.parquet", page_checksum_verification=True
+                )
+                .read()
+                .to_pylist()
+            ):
+                require(row["event_type"] in classes, "UNSUPPORTED_EXACT_SIDECAR_EVENT")
+                value = classes[row["event_type"]].from_dict(
+                    json.loads(row["event_json"])
+                )
+                require(
+                    event_hash(value) == row["event_hash"], "EXACT_SIDECAR_SEMANTICS"
+                )
+                events.append(value)
+        if "native_catalog_precision_contract" in report:
+            from nautilus_trader.model import (
+                Price,
+                Quantity,
+                BookOrder,
+                OrderBookDelta,
+                TradeTick,
+            )
+            from ..adapters.common import fixed
+
+            definitions = {str(i.id): i for i in instruments}
+            rehydrated = []
+            for event in events:
+                instrument = definitions[str(event.instrument_id)]
+
+                def px(value):
+                    return Price.from_str(
+                        fixed(value.as_decimal(), instrument.price_precision)
+                    )
+
+                def qty(value):
+                    return Quantity.from_str(
+                        fixed(value.as_decimal(), instrument.size_precision)
+                    )
+
+                if type(event).__name__ == "TradeTick":
+                    value = TradeTick(
+                        event.instrument_id,
+                        px(event.price),
+                        qty(event.size),
+                        event.aggressor_side,
+                        event.trade_id,
+                        event.ts_event,
+                        event.ts_init,
+                    )
+                else:
+                    value = OrderBookDeltas(
+                        event.instrument_id,
+                        [
+                            OrderBookDelta(
+                                d.instrument_id,
+                                d.action,
+                                d.order
+                                if str(d.action) == "CLEAR"
+                                else BookOrder(
+                                    d.order.side,
+                                    px(d.order.price),
+                                    qty(d.order.size),
+                                    d.order.order_id,
+                                ),
+                                d.flags,
+                                d.sequence,
+                                d.ts_event,
+                                d.ts_init,
+                            )
+                            for d in event.deltas
+                        ],
+                    )
+                require(
+                    event_hash(value) == event_hash(event),
+                    "PRECISION_REHYDRATION_CHANGED_VALUE",
+                )
+                rehydrated.append(value)
+            events = rehydrated
         by_hash = defaultdict(deque)
         for value in events:
             by_hash[event_hash(value)].append(value)

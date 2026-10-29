@@ -59,10 +59,14 @@ The inspected compatibility runtime is pinned separately in
 3. Implement data/venue integration with deterministic offline replay.
 4. Add a small strategy and reproducible backtest before considering live execution.
 
-The acquisition system remains in its existing repository. Final recorded data
-continues to use `context.parquet`, `orderbook.parquet` and `trades.parquet` per
-recording group. Exported Nautilus catalogs are independent research artifacts;
-they never replace or modify those source products. No real dataset, private key
+The acquisition system remains in its existing repository. The legacy
+three-Parquet recording contract remains supported. The new native collector
+uses a shared, compressed `nautilus-source/1` archive with native events, API page
+occurrences, market/fee versions and Pair relationships. Its
+[private compact-source adapter](docs/COMPACT_ARCHIVE_IMPORT.md) verifies hashes,
+preserves 18-place values, deduplicates observations and masks unsafe book gaps.
+Exported Nautilus catalogs are independent research artifacts;
+they never replace or modify source products. No real dataset, private key
 or provider token belongs in Git. The small checked-in fixture contains only
 synthetic transport responses processed by the actual recorder.
 

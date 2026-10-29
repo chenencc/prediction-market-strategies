@@ -3,7 +3,7 @@
 from collections import defaultdict
 
 
-def replay_probe(exported):
+def replay_probe(exported, *, force_l2=False):
     from nautilus_trader.backtest import BacktestEngine, BacktestEngineConfig
     from nautilus_trader.model import (
         Venue,
@@ -30,6 +30,65 @@ def replay_probe(exported):
         if type(v).__name__ == "OrderBookDeltas"
     }
     venue_book_types = {}
+    runtime_data = list(exported.data)
+    unavailable_controls = []
+    if force_l2:
+        from nautilus_trader.model import (
+            OrderBookDelta,
+            OrderBookDeltas,
+            BookAction,
+            BookOrder,
+            OrderSide,
+            Price,
+            Quantity,
+            RecordFlag,
+        )
+
+        for instrument in exported.instruments:
+            ident = str(instrument.id)
+            if ident in data_ids and ident not in book_ids:
+                at = (
+                    min(
+                        r.ts_init
+                        for r in exported.data
+                        if str(r.instrument_id) == ident
+                    )
+                    - 1
+                )
+                # Engine validation requires a book object even for trades-only
+                # instruments. An explicit UNKNOWN/empty control is not a
+                # snapshot, quote or independent complementary liquidity.
+                runtime_data.append(
+                    OrderBookDeltas(
+                        instrument.id,
+                        [
+                            OrderBookDelta(
+                                instrument.id,
+                                BookAction.CLEAR,
+                                BookOrder(
+                                    OrderSide.NO_ORDER_SIDE,
+                                    Price.from_str("0"),
+                                    Quantity.from_str("0"),
+                                    0,
+                                ),
+                                int(RecordFlag.F_LAST),
+                                0,
+                                0,
+                                at,
+                            )
+                        ],
+                    )
+                )
+                unavailable_controls.append(
+                    dict(
+                        instrument_id=ident,
+                        ts_init=at,
+                        source_book_available=False,
+                        execution_allowed=False,
+                        kind="runtime_empty_book_not_native_snapshot",
+                    )
+                )
+        runtime_data.sort(key=lambda r: r.ts_init)
     try:
         for instrument in exported.instruments:
             currencies[str(instrument.id.venue)][str(instrument.currency)] = (
@@ -45,7 +104,9 @@ def replay_probe(exported):
             # outcomes with trade ticks. Use L1 only for this no-order plumbing
             # probe when a native book is absent; never invent complementary depth.
             l2_complete = bool(active) and active <= book_ids
-            venue_book_type = BookType.L2_MBP if l2_complete else BookType.L1_MBP
+            venue_book_type = (
+                BookType.L2_MBP if force_l2 or l2_complete else BookType.L1_MBP
+            )
             venue_book_types[venue] = dict(
                 book_type=str(venue_book_type), l2_inputs_complete=l2_complete
             )
@@ -70,10 +131,10 @@ def replay_probe(exported):
         for item in exported.data:
             if type(item).__name__ == "OrderBookDeltas":
                 books[str(item.instrument_id)].apply_deltas(item)
-        engine.add_data(exported.data)
+        engine.add_data(runtime_data)
         engine.run()
         require(
-            engine.iteration == len(exported.data), "ENGINE_DID_NOT_CONSUME_ALL_RECORDS"
+            engine.iteration == len(runtime_data), "ENGINE_DID_NOT_CONSUME_ALL_RECORDS"
         )
         # The inspected Windows 2.x wheel's aggregate result path converts
         # account money to f64 and aborts for 18-decimal currencies. Data
@@ -95,7 +156,9 @@ def replay_probe(exported):
             schema="nautilus-offline-replay-probe/1",
             success=True,
             instruments=len(exported.instruments),
-            input_records=len(exported.data),
+            input_records=len(runtime_data),
+            source_input_records=len(exported.data),
+            unavailable_book_controls=unavailable_controls,
             iterations=engine.iteration,
             total_events=getattr(result, "total_events", None),
             total_orders=getattr(result, "total_orders", None),

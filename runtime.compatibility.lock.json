@@ -19,5 +19,13 @@
     "This wheel is an older source than the reviewed engine baseline; passing probes do not verify that baseline",
     "Windows account result aggregation aborts for 18-decimal collateral; data-only probe skips that path",
     "Bounded synthetic strategy matching and local Sandbox connectivity are separate probes; real-feed fills, exchange-actual fees/latency, profitability and live execution are not certified"
-  ]
+  ],
+  "compact_archive_adapter": {
+    "schema": "compact-nautilus-import/1",
+    "private_reader_required_for_18_place_catalog_overflow": true,
+    "source_archive_unchanged": true,
+    "model_objects_preserve_18_places": true,
+    "net_predict_accounting_requires_share_fee_overlay": true,
+    "import_and_bounded_matching_audit": "docs/validation/compact-archive-20261029.json"
+  }
 }

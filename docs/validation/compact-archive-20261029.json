@@ -1,0 +1,184 @@
+{
+  "schema": "private-compact-nautilus-acceptance/1",
+  "at": "2026-10-29T07:28:53.143267+00:00",
+  "status": "exact_import_and_bounded_matching_passed_with_explicit_runtime_limits",
+  "repository": "chenencc/prediction-market-strategies",
+  "private_repository_verified": true,
+  "branch": "codex/nautilus-exporter",
+  "source_manifest_sha256": "910df894777082ba67ccdcfae0c5208331233de46d0889e59cf63ddb20acfebf",
+  "pair_groups": 200,
+  "instruments": 800,
+  "source_records": 7888,
+  "event_counts": {
+    "OrderBookDeltas": 7847,
+    "TradeTick": 41
+  },
+  "source_unchanged": true,
+  "catalog_cold_readback_verified": true,
+  "precision": {
+    "native_max_scale": 16,
+    "overflow_events": 1,
+    "private_reader_required": true,
+    "rounding_performed": false,
+    "engine_objects_support_18_places": true,
+    "standalone_native_catalog_complete": false,
+    "sidecar_file": "exact-overflow.parquet"
+  },
+  "runtime": {
+    "version": "2.0.0rc8.dev20261025",
+    "python": "3.13.14",
+    "private_strategy_repository": "chenencc/prediction-market-strategies",
+    "desired_engine_lock_verified": false
+  },
+  "stages": [
+    "specification_and_units_contract",
+    "reported_fee_cash_and_share_ledger",
+    "gap_and_terminal_safety",
+    "exact_cold_catalog_readback",
+    "L2_engine_import",
+    "bounded_native_depth_IOC_matching"
+  ],
+  "tests": {
+    "passed": 85,
+    "failed": 0,
+    "errors": 0,
+    "elapsed_seconds": 1.533,
+    "changed_code_lint_passed": true,
+    "existing_unrelated_global_lint_issues": "5 pre-existing findings in tests/test_bootstrap.py; unchanged"
+  },
+  "engine": {
+    "iterations": 7889,
+    "source_input_records": 7888,
+    "unavailable_empty_controls": 1,
+    "venue_book_types": {
+      "POLYMARKET": {
+        "book_type": "L2_MBP",
+        "l2_inputs_complete": true
+      },
+      "PREDICTFUN": {
+        "book_type": "L2_MBP",
+        "l2_inputs_complete": false
+      }
+    },
+    "original_desired_source_build_verified": false,
+    "account_pnl_summary_skipped": true
+  },
+  "fees": {
+    "predict_conservation_passed": 33,
+    "predict_observed_curve_exact_matches": 33,
+    "predict_errors": 0,
+    "predict_native_engine_position_is_gross": true,
+    "predict_money_only_net_pnl_certified": false,
+    "poly_floor_regression": "5 shares at0.97,rate0.05 ->0.00727 pUSD; older wheel rounded0.00728"
+  },
+  "matching": {
+    "POLYMARKET": {
+      "success": true,
+      "venue": "POLYMARKET",
+      "instrument_id": "0xa4decc2ed8c4542f024cc60f1b48af5d6581c470e81bd38cfe0f8d35aea6e27b-79560079863173198970070430392329661363711771631800839944750072821833869542453.POLYMARKET",
+      "source_snapshot_received_ns": 1793250268420190850,
+      "source_snapshot_event_ns": 1793250058000000000,
+      "source_best_bid": "0.910000000000000000",
+      "source_best_ask": "0.970000000000000000",
+      "simulated_fills": [
+        {
+          "quantity": "5.000000000000000000",
+          "price": "0.970000000000000000",
+          "commission": "0.007270 pUSD",
+          "liquidity_side": "TAKER",
+          "ts_event": 1793250268420190850
+        }
+      ],
+      "simulated_orders": 1,
+      "live_orders": 0,
+      "matching": "retained_native_L2_taker_IOC_no_trade_based_fills_no_queue_priority",
+      "expiry": "explicit_synthetic_future_for_matching_fixture_only",
+      "engine_pnl_summary_requested": false,
+      "profitability_certified": false
+    },
+    "PREDICTFUN": {
+      "success": true,
+      "venue": "PREDICTFUN",
+      "instrument_id": "26952-58454370216835695667633699744237813727288029479238115225451421553185031254678.PREDICTFUN",
+      "source_snapshot_received_ns": 1793250266185822400,
+      "source_snapshot_event_ns": 1793247190814000000,
+      "source_best_bid": "0.063000000000000000",
+      "source_best_ask": "0.078000000000000000",
+      "simulated_fills": [
+        {
+          "quantity": "1.000000000000000000",
+          "price": "0.078000000000000000",
+          "commission": "0.00000000 USDT",
+          "liquidity_side": "TAKER",
+          "ts_event": 1793250266185822400
+        }
+      ],
+      "simulated_orders": 1,
+      "live_orders": 0,
+      "matching": "retained_native_L2_taker_IOC_no_trade_based_fills_no_queue_priority",
+      "expiry": "explicit_synthetic_future_for_matching_fixture_only",
+      "engine_pnl_summary_requested": false,
+      "profitability_certified": false,
+      "predict_fee_inventory_overlay": {
+        "status": "estimate_separate_from_native_gross_position",
+        "fee_unit": "SHARES",
+        "fee_atoms": "20000000000000000",
+        "gross_shares": "1",
+        "net_shares": "0.98",
+        "quote_cash_spend": "0.078000000000000000",
+        "native_engine_position_is_gross": true,
+        "native_pnl_with_share_fees_certified": false
+      }
+    }
+  },
+  "timings": {
+    "source_integrity_seconds": 0.2268363999974099,
+    "conversion_seconds": 0.9312693000028958,
+    "catalog_write_and_cold_read_seconds": 5.055915700002515,
+    "engine_replay_seconds": 0.2758001999973203,
+    "bounded_matching_seconds": 0.047280200000386685
+  },
+  "trade_summary": {
+    "polymarket": {
+      "canonical_api_matches": 8,
+      "trade_ticks": 8,
+      "ws_api_groups": 8,
+      "observations": 450340
+    },
+    "predictfun": {
+      "canonical_api_matches": 33,
+      "trade_ticks": 33,
+      "ws_api_groups": 0,
+      "observations": 132200
+    }
+  },
+  "gaps": {
+    "polymarket_known_gap_seconds": "2.835534087",
+    "scope": "conservative_whole_venue",
+    "awaiting_fresh_snapshot_assets": 250,
+    "native_source_gap_not_repaired": true,
+    "quarantined_updates": {
+      "price_change": 168,
+      "update_without_valid_snapshot": 4296
+    }
+  },
+  "limitations": [
+    "API observations/settlement aggregates are not certified atomic fills or complete history",
+    "Predict SDK minimum is not an independently observed exchange order minimum",
+    "Derived NO shares native YES liquidity; never execute two independent books against it",
+    "Predict BUY share fees require inventory accounting, not Money-only commission",
+    "No assumed terminal payouts from unconfirmed native integer resolution scales",
+    "Exact desired engine.lock source not available in installed older Windows compatibility wheel"
+  ],
+  "live_orders": 0,
+  "provider_calls": 0,
+  "new_capture_started": false,
+  "old_service_started": false,
+  "engine_source_pin_changed": false,
+  "raw_data_published": false,
+  "local_evidence": {
+    "full_acceptance": "D:/metaculus/.tmp/nt29-r5/acceptance.json",
+    "regression_log": "D:/metaculus/.coordination/nautilus-compact-tests-20261029-final3.log",
+    "import_log": "D:/metaculus/.coordination/nautilus-compact-import-20261029-r5.log"
+  }
+}
