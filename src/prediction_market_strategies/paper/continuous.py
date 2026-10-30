@@ -104,7 +104,28 @@ class SessionLock:
         self.file.close()
 
 
-def supervise(root, session_id):
+def carry_from(root, session_id):
+    old = json.loads(
+        (root / "_sessions" / session_id / "session.json").read_text(encoding="utf8")
+    )
+    if old.get("status") != "stopped" or not old.get("runs"):
+        raise ValueError("carry source must be stopped with a closed native run")
+    run_id = old["runs"][-1]["run_id"]
+    directory = (root / run_id).resolve()
+    if directory.parent != root.resolve():
+        raise ValueError("invalid source run path")
+    report = json.loads((directory / "report.json").read_text(encoding="utf8"))
+    state = json.loads((directory / "monitor-state.json").read_text(encoding="utf8"))
+    balance, currency = next_balance(report, state, old.get("currency"))
+    if balance != Decimal(old["balance"]):
+        raise ValueError("carry balance receipt mismatch")
+    fees = Decimal(old["fees"])
+    if not fees.is_finite() or fees < 0:
+        raise ValueError("invalid carried fees")
+    return balance, fees, currency
+
+
+def supervise(root, session_id, previous_session=None):
     root = Path(root).resolve()
     control = root / "_sessions"
     control.mkdir(parents=True, exist_ok=True)
@@ -134,6 +155,15 @@ def supervise(root, session_id):
             None,
             0,
         )
+        if previous_session:
+            balance, fees, currency = carry_from(root, previous_session)
+            status.update(
+                balance=str(balance),
+                fees=str(fees),
+                currency=currency,
+                previous_session=previous_session,
+                cumulative_pnl=str(balance - 1000),
+            )
         child = None
         try:
             while not stop.exists():
@@ -279,10 +309,11 @@ def main():
     )
     parser.add_argument("--child-config")
     parser.add_argument("--stop-session")
+    parser.add_argument("--carry-from-session")
     args = parser.parse_args()
     import re
 
-    for value in (args.session_id, args.stop_session):
+    for value in (args.session_id, args.stop_session, args.carry_from_session):
         if value and not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", value):
             parser.error("invalid session ID")
     if args.child_config:
@@ -299,7 +330,7 @@ def main():
             "Graceful stop requested; waiting for native paper orders and position drain."
         )
         return 0
-    return supervise(args.root, args.session_id)
+    return supervise(args.root, args.session_id, args.carry_from_session)
 
 
 if __name__ == "__main__":

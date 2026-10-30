@@ -68,6 +68,7 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
         self.next_entry_ns = 0
         self.exit_only = False
         if self.rules.repeat:
+            self.policy_interval_ns = 100_000_000
             self.outcome_sets = (frozenset({"yes", "no"}), frozenset({"up", "down"}))
 
     def _block(self, reason):

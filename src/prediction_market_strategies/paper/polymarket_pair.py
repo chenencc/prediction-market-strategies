@@ -277,7 +277,10 @@ async def run(args):
         report["source_strategy"] = dict(
             implementation="bounded single-market threshold round trip"
         )
-        report["simulation"]["decision_delay_ms"] = 0
+        report["simulation"]["decision_delay_ms"] = 100 if is_cycle else 0
+    report["raw_book_capture"] = (
+        "monitor_snapshots_only" if is_cycle else "all_native_input_batches"
+    )
     from .monitor import MonitorWriter
 
     monitor = MonitorWriter(
@@ -507,6 +510,7 @@ async def run(args):
         else:
             strategy = BinaryPairPaperStrategy([i.id for i in instruments], rules)
         strategy.monitor = monitor
+        strategy.capture_raw_inputs = not is_cycle
         if (
             is_cycle
             and getattr(args, "stop_request_file", None)
@@ -562,7 +566,7 @@ async def run(args):
             if time.monotonic() - last_progress >= 10:
                 report.update(
                     observed_ns=time.time_ns(),
-                    book_batches=len(strategy.raw_batches),
+                    book_batches=sum(strategy.counts[str(i)] for i in strategy.ids),
                     counts=dict(strategy.counts),
                     entered=strategy.entered,
                 )
@@ -614,16 +618,25 @@ async def run(args):
                     [i.to_dict() for i in strategy.instruments.values()],
                 )
                 # Small bounded native input capture, independently readable.
-                report.update(
-                    archive_inputs(
-                        root / "catalog",
-                        list(strategy.instruments.values()),
-                        strategy.raw_batches,
+                if strategy.capture_raw_inputs:
+                    report.update(
+                        archive_inputs(
+                            root / "catalog",
+                            list(strategy.instruments.values()),
+                            strategy.raw_batches,
+                        )
                     )
-                )
+                else:
+                    report.update(
+                        raw_book_inputs_preserved=False,
+                        catalog_roundtrip_semantics_match=None,
+                        full_input_replay_available=False,
+                    )
                 if not all(strategy.counts[str(i)] > 0 for i in strategy.ids):
                     report.update(status="failed", error="missing real two-leg L2 feed")
-                report["book_batches"] = len(strategy.raw_batches)
+                report["book_batches"] = sum(
+                    strategy.counts[str(i)] for i in strategy.ids
+                )
                 if report["result"]["unresolved_orders"] or strategy.halted:
                     report.update(
                         status="failed",

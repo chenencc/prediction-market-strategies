@@ -129,7 +129,7 @@ def saved_inputs(source):
     return items, sorted(batches, key=lambda b: (b.ts_init, str(b.instrument_id)))
 
 
-def replay(root, source=None, rules=None, inputs=None):
+def replay(root, source=None, rules=None, inputs=None, capture_raw_inputs=True):
     root = Path(root).resolve()
     root.mkdir(parents=True, exist_ok=False)
     items, batches = inputs or (saved_inputs(source) if source else synthetic_inputs())
@@ -168,6 +168,7 @@ def replay(root, source=None, rules=None, inputs=None):
         ),
     )
     strategy = SingleMarketPaperStrategy([i.id for i in items], rules)
+    strategy.capture_raw_inputs = capture_raw_inputs
     strategy.monitor = monitor
     try:
         for item in items:
@@ -192,6 +193,7 @@ def replay(root, source=None, rules=None, inputs=None):
         save_json(root / "events.json", strategy.records)
         save_json(root / "initial-instruments.json", [i.to_dict() for i in items])
         report = dict(
+            retained_native_batches=len(strategy.raw_batches),
             status=status,
             source=monitor.metadata["source"],
             real_execution_clients=0,

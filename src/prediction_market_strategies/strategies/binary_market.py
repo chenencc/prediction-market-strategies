@@ -93,6 +93,9 @@ class BinaryMarketPaperStrategy(Strategy):
         self.terminal = set()
         self.entered, self.halted = False, False
         self.raw_batches = []
+        self.capture_raw_inputs = True
+        self.policy_interval_ns = 0
+        self.next_policy_ns = 0
         self.last_sample_ns = 0
         self.seen_fills = set()
         self.candidate_ns = None
@@ -146,6 +149,10 @@ class BinaryMarketPaperStrategy(Strategy):
         # must not leave resting orders active or certify a quiet strategy.
         if self.halted:
             return
+        now = self._clock.timestamp_ns()
+        if now < self.next_policy_ns:
+            return
+        self.next_policy_ns = now + self.policy_interval_ns
         try:
             self._tick()
         except Exception as exc:
@@ -222,11 +229,12 @@ class BinaryMarketPaperStrategy(Strategy):
         if ident not in self.native_books:
             return
         self.counts[str(ident)] += 1
-        if len(self.raw_batches) >= 100_000:
-            self.halted = True
-            self.record("input_cap")
-            return
-        self.raw_batches.append(deltas)
+        if getattr(self, "capture_raw_inputs", True):
+            if len(self.raw_batches) >= 100_000:
+                self.halted = True
+                self.record("input_cap")
+                return
+            self.raw_batches.append(deltas)
         snapshot = bool(
             deltas.deltas and int(deltas.deltas[-1].flags) & int(RecordFlag.F_SNAPSHOT)
         )
