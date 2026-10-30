@@ -230,7 +230,14 @@ async def run(args):
     from ..strategies.binary_pair_arbitrage import BinaryPairPaperStrategy, PairRules
 
     is_maker = getattr(args, "strategy", "binary-pair") == "depth-maker"
-    is_single = getattr(args, "strategy", "binary-pair") == "single-market"
+    is_cycle = getattr(args, "strategy", "binary-pair") == "continuous-market"
+    is_single = getattr(args, "strategy", "binary-pair") in {
+        "single-market",
+        "continuous-market",
+    }
+    starting_balance = Decimal(str(getattr(args, "starting_balance", "1000")))
+    if not starting_balance.is_finite() or starting_balance <= 0:
+        raise ValueError("invalid virtual balance")
 
     root = Path(args.output).resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -244,9 +251,11 @@ async def run(args):
         slug=args.slug,
         local_only=True,
         real_execution_clients=0,
-        virtual_starting_balance="1000",
+        virtual_starting_balance=str(starting_balance),
         runtime=runtime(),
-        limits=dict(seconds=args.seconds, one_market=True, max_entries=1),
+        limits=dict(
+            seconds=args.seconds, one_market=True, max_entries=None if is_cycle else 1
+        ),
         simulation=dict(
             decision_delay_ms=250,
             insert_latency_ms=100,
@@ -280,7 +289,11 @@ async def run(args):
             slug=args.slug,
             strategy=getattr(args, "strategy", "binary-pair"),
             simulation=report["simulation"],
-            starting_balance="1000",
+            starting_balance=str(starting_balance),
+            session_id=getattr(args, "session_id", None),
+            session_initial_balance=getattr(args, "session_initial_balance", "1000"),
+            prior_realized_pnl=getattr(args, "prior_realized_pnl", "0"),
+            prior_fees=getattr(args, "prior_fees", "0"),
             started_ns=started_ns,
         ),
     )
@@ -309,6 +322,8 @@ async def run(args):
         from ..strategies import single_market
 
         source_files.append(Path(single_market.__file__))
+    if is_cycle:
+        source_files.append(Path(__file__).with_name("continuous.py"))
     if is_maker:
         from ..strategies import depth_maker, depth_maker_nautilus
         from . import fees, rewards
@@ -355,8 +370,14 @@ async def run(args):
                 receipts=report["metadata_attempts"],
             )
             instruments.append(loader.instrument)
-        if any(i.outcome.lower() not in {"yes", "no"} for i in instruments):
+        allowed = {"yes", "no", "up", "down"} if is_cycle else {"yes", "no"}
+        if any(i.outcome.lower() not in allowed for i in instruments):
             raise ValueError("only complementary Yes/No markets supported")
+        expected = getattr(args, "expected_condition_id", None)
+        if expected and any(
+            i.info.get("condition_id") != expected for i in instruments
+        ):
+            raise ValueError("discovery/native market mismatch")
         currency = instruments[0].currency
         if currency.precision > 16:
             raise ValueError(
@@ -402,12 +423,19 @@ async def run(args):
                 take_profit=Decimal(args.take_profit),
                 stop_loss=Decimal(args.stop_loss),
                 hold_ns=args.hold_seconds * 10**9,
+                repeat=is_cycle,
+                cooldown_ns=getattr(args, "cooldown_seconds", 5) * 10**9,
+                entry_cutoff_ns=getattr(args, "entry_cutoff_ns", 0),
+                exit_cutoff_ns=getattr(args, "exit_cutoff_ns", 0),
             )
         else:
             rules = PairRules()
         report["rules"] = asdict(rules)
         monitor.metadata.update(
-            rules=asdict(rules), title=instruments[0].info.get("question", args.slug)
+            rules=asdict(rules),
+            title=getattr(args, "title", None)
+            or instruments[0].info.get("question", args.slug),
+            window_end_ns=getattr(args, "window_end_ns", None),
         )
         node = (
             LiveNode.builder(
@@ -447,7 +475,7 @@ async def run(args):
                 SandboxExecutionClientFactory(),
                 SandboxExecutionClientConfig(
                     venue=instruments[0].id.venue,
-                    starting_balances=[Money(Decimal("1000"), currency)],
+                    starting_balances=[Money(starting_balance, currency)],
                     account_id=AccountId("POLYMARKET-SANDBOX-001"),
                     oms_type=OmsType.NETTING,
                     account_type=AccountType.CASH,
@@ -479,6 +507,12 @@ async def run(args):
         else:
             strategy = BinaryPairPaperStrategy([i.id for i in instruments], rules)
         strategy.monitor = monitor
+        if (
+            is_cycle
+            and getattr(args, "stop_request_file", None)
+            and Path(args.stop_request_file).exists()
+        ):
+            strategy.exit_only = True
         node.add_strategy(strategy)
         cache, handle = node.cache, node.handle()
         task = asyncio.create_task(node.run_async())
@@ -495,13 +529,36 @@ async def run(args):
         # Finite wall-clock duration from actual node start. No need to wait
         # indefinitely for a signal or invent one to exercise execution.
         deadline = time.monotonic() + args.seconds
+        if getattr(args, "window_end_ns", 0):
+            deadline = min(
+                deadline,
+                time.monotonic()
+                + max(0, (args.window_end_ns - time.time_ns()) / 1e9 - 5),
+            )
         last_progress = 0
+        stop_requested_at = None
         while time.monotonic() < deadline:
             if task.done():
                 await task
                 raise RuntimeError("node exited during trial")
             if strategy.halted:
                 raise RuntimeError("strategy protection halt; see event journal")
+            if (
+                is_cycle
+                and getattr(args, "stop_request_file", None)
+                and Path(args.stop_request_file).exists()
+            ):
+                strategy.exit_only = True
+                stop_requested_at = stop_requested_at or time.monotonic()
+                if not any(strategy.inventory().values()) and all(
+                    o.is_closed for o in cache.orders()
+                ):
+                    report["user_stop_requested"] = True
+                    break
+                if time.monotonic() - stop_requested_at > 45:
+                    raise RuntimeError(
+                        "stop drain timeout; simulated residual retained"
+                    )
             if time.monotonic() - last_progress >= 10:
                 report.update(
                     observed_ns=time.time_ns(),
@@ -635,7 +692,7 @@ def main(*, default_strategy="binary-pair"):
     parser.add_argument("--output", required=True)
     parser.add_argument(
         "--strategy",
-        choices=["binary-pair", "depth-maker", "single-market"],
+        choices=["binary-pair", "depth-maker", "single-market", "continuous-market"],
         default=default_strategy,
     )
     parser.add_argument(

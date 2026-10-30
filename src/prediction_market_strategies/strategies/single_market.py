@@ -19,6 +19,10 @@ class SingleRules:
     hold_ns: int = 15_000_000_000
     max_age_ns: int = 3_000_000_000
     order_timeout_ns: int = 5_000_000_000
+    repeat: bool = False
+    cooldown_ns: int = 5_000_000_000
+    entry_cutoff_ns: int = 0
+    exit_cutoff_ns: int = 0
 
     def __post_init__(self):
         for name in (
@@ -34,9 +38,22 @@ class SingleRules:
                 raise ValueError("positive finite Decimal required: " + name)
         if self.buy_below >= 1 or self.max_spread >= 1:
             raise ValueError("invalid probability bound")
-        for name in ("hold_ns", "max_age_ns", "order_timeout_ns"):
+        for name in ("hold_ns", "max_age_ns", "order_timeout_ns", "cooldown_ns"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise ValueError("positive clock bound required")
+        if type(self.repeat) is not bool:
+            raise ValueError("repeat must be boolean")
+        if any(
+            type(v) is not int or v < 0
+            for v in (self.entry_cutoff_ns, self.exit_cutoff_ns)
+        ):
+            raise ValueError("invalid window cutoff")
+        if (
+            self.entry_cutoff_ns
+            and self.exit_cutoff_ns
+            and self.entry_cutoff_ns > self.exit_cutoff_ns
+        ):
+            raise ValueError("entry cutoff must precede exit cutoff")
 
 
 class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
@@ -47,6 +64,11 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
         self.sent_ns = self.bought_ns = None
         self.entry_price = None
         self.exit_attempts = 0
+        self.cycles = 0
+        self.next_entry_ns = 0
+        self.exit_only = False
+        if self.rules.repeat:
+            self.outcome_sets = (frozenset({"yes", "no"}), frozenset({"up", "down"}))
 
     def _block(self, reason):
         self.halted, self.phase, self.reason = True, "blocked", reason
@@ -57,11 +79,11 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
     def _tick(self):
         now = self._clock.timestamp_ns()
         ident = next(
-            i for i in self.ids if self.instruments[i].outcome.lower() == "yes"
+            i for i in self.ids if self.instruments[i].outcome.lower() in {"yes", "up"}
         )
         idx = self.ids.index(ident)
         active = [self._cache.order(x) for x in self.order_ids]
-        if any(o is not None and not o.is_closed for o in active):
+        if any(o is None or not o.is_closed for o in active):
             self.reason = "waiting_for_order_confirmation"
             if now - self.sent_ns > self.rules.order_timeout_ns:
                 self._block("order_confirmation_timeout")
@@ -71,11 +93,36 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
             self._block("unexpected_short_position")
             return
         if self.entered and held == 0:
+            if self.rules.repeat:
+                self.cycles += int(self.bought_ns is not None)
+                self.record(
+                    "cycle_closed",
+                    cycles=self.cycles,
+                    filled=self.bought_ns is not None,
+                )
+                self.entered = False
+                self.order_ids = []
+                self.sent_ns = self.bought_ns = self.entry_price = None
+                self.exit_attempts = 0
+                self.next_entry_ns = now + self.rules.cooldown_ns
+                self.phase, self.reason = "cooldown", "cycle_cooldown"
+                return
             self.phase, self.reason = (
                 "completed",
                 "round_trip_complete" if self.bought_ns else "entry_unfilled",
             )
             return
+        closing = self.exit_only or bool(
+            self.rules.entry_cutoff_ns and now >= self.rules.entry_cutoff_ns
+        )
+        if not self.entered and closing:
+            self.phase, self.reason = "draining", "market_rollover"
+            return
+        if not self.entered and now < self.next_entry_ns:
+            self.phase, self.reason = "cooldown", "cycle_cooldown"
+            return
+        if not self.entered:
+            self.phase = "waiting"
         view = self.views.get(ident)
         if view is None or not view.bids or not view.asks:
             self.reason = "waiting_for_snapshot"
@@ -130,7 +177,10 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
                 self._block("missing_fill_basis")
                 return
             reason = (
-                "take_profit"
+                "window_closing"
+                if self.exit_only
+                or (self.rules.exit_cutoff_ns and now >= self.rules.exit_cutoff_ns)
+                else "take_profit"
                 if bid >= self.entry_price + self.rules.take_profit
                 else "stop_loss"
                 if bid <= self.entry_price - self.rules.stop_loss
@@ -183,7 +233,14 @@ class SingleMarketPaperStrategy(BinaryMarketPaperStrategy):
 
     def on_order_filled(self, event):
         super().on_order_filled(event)
-        buys = [r for r in self.records if r["kind"] == "fill" and r["side"] == "BUY"]
+        current_ids = {str(i) for i in self.order_ids}
+        buys = [
+            r
+            for r in self.records
+            if r["kind"] == "fill"
+            and r["side"] == "BUY"
+            and r["client_order_id"] in current_ids
+        ]
         if buys:
             self.bought_ns = min(r["now_ns"] for r in buys)
             self.entry_price = sum(

@@ -186,6 +186,9 @@ def capture(strategy, status="running", error=None):
         )
     cash = total.as_decimal() if total is not None else None
     cost = sum((x["cost"] for x in rows.values()), Decimal(0))
+    metadata = strategy.monitor.metadata if strategy.monitor is not None else {}
+    prior_pnl = Decimal(metadata.get("prior_realized_pnl", "0"))
+    prior_fees = Decimal(metadata.get("prior_fees", "0"))
     return wire(
         dict(
             observed_ns=now,
@@ -197,6 +200,7 @@ def capture(strategy, status="running", error=None):
             ),
             reason=getattr(strategy, "reason", ""),
             halted=strategy.halted,
+            cycles=getattr(strategy, "cycles", 0),
             books=books,
             orders=[x.to_dict() for x in strategy._cache.orders()],
             events=strategy.records[-100:],
@@ -207,6 +211,8 @@ def capture(strategy, status="running", error=None):
                 cash_total=str(cash) if cash is not None else None,
                 cash_free=str(free.as_decimal()) if free is not None else None,
                 realized_pnl=str(realized) if fees_known else None,
+                session_realized_pnl=str(prior_pnl + realized) if fees_known else None,
+                session_fees=str(prior_fees + fees) if fees_known else None,
                 unrealized_pnl=str(liquidation - cost)
                 if valuation_valid and fees_known
                 else None,

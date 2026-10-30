@@ -74,6 +74,8 @@ def walk(asks, quantity):
 
 
 class BinaryMarketPaperStrategy(Strategy):
+    outcome_sets = (frozenset({"yes", "no"}),)
+
     def __init__(self, instrument_ids, rules, strategy_id):
         super().__init__(
             StrategyConfig(
@@ -170,7 +172,8 @@ class BinaryMarketPaperStrategy(Strategy):
                 or str(instruments[0].id.venue) != "POLYMARKET"
                 or len({i.get("condition_id") for i in infos}) != 1
                 or not infos[0].get("condition_id")
-                or {i.outcome.lower() for i in instruments} != {"yes", "no"}
+                or frozenset(i.outcome.lower() for i in instruments)
+                not in self.outcome_sets
                 or len({str(i.currency) for i in instruments}) != 1
                 or any(i.get("market_version") != "v1" for i in infos)
             ):
