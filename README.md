@@ -44,6 +44,9 @@ orderbook and matches JSON through the same conversion primitives.
 The optional [local binary-pair paper experiment](docs/PAPER_TRADING.md) uses
 public Polymarket L2 data and a Sandbox execution client with virtual funds.
 It never deploys or sends real exchange orders.
+The [local Paper Observatory](docs/PAPER_MONITOR.md) adds a read-only browser
+terminal and a bounded single-market buy/sell strategy, with native orders,
+simulated fills, depth, P&L, data-gap indicators and historical frame replay.
 The [depth-tier maker](docs/DEPTH_MAKER.md), independently based on
 `ccjingeth/predict-fun-marketmaker`, shares that local paper infrastructure and
 adds passive quoting, acknowledgement-gated replacement and bounded fill hedges.

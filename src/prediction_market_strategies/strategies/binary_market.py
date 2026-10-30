@@ -94,6 +94,29 @@ class BinaryMarketPaperStrategy(Strategy):
         self.last_sample_ns = 0
         self.seen_fills = set()
         self.candidate_ns = None
+        self.monitor = None
+        self.last_monitor_ns = 0
+
+    def publish_monitor(self, status="running", error=None, force=False):
+        if self.monitor is None or not hasattr(self, "currency"):
+            return
+        now = self._clock.timestamp_ns()
+        if not force and now - self.last_monitor_ns < 250_000_000:
+            return
+        self.last_monitor_ns = now
+        from ..paper.monitor import capture
+
+        try:
+            self.monitor.snapshot(capture(self, status, error))
+        except Exception as exc:
+            self.monitor.error = "observation_capture_failure: " + str(exc)
+        if self.monitor.error and not self.halted:
+            self.halted = True
+            self.records.append(
+                dict(kind="observation_failure", now_ns=now, error=self.monitor.error)
+            )
+            for ident in self.ids:
+                self.cancel_all_orders(ident)
 
     def on_ready(self):
         pass
@@ -111,9 +134,10 @@ class BinaryMarketPaperStrategy(Strategy):
         return super().__new__(cls)
 
     def record(self, kind, **values):
-        self.records.append(
-            dict(kind=kind, now_ns=self._clock.timestamp_ns(), **values)
-        )
+        row = dict(kind=kind, now_ns=self._clock.timestamp_ns(), **values)
+        self.records.append(row)
+        if self.monitor is not None:
+            self.monitor.event(row)
 
     def guarded_tick(self):
         # The native Python callback bridge logs exceptions; logging alone
@@ -237,6 +261,7 @@ class BinaryMarketPaperStrategy(Strategy):
     def on_time_event(self, event):
         if event.name == "market-watchdog" and hasattr(self, "fees"):
             self.guarded_tick()
+            self.publish_monitor()
 
     def on_order_event(self, event):
         ident = str(getattr(event, "client_order_id", ""))

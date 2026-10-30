@@ -230,6 +230,7 @@ async def run(args):
     from ..strategies.binary_pair_arbitrage import BinaryPairPaperStrategy, PairRules
 
     is_maker = getattr(args, "strategy", "binary-pair") == "depth-maker"
+    is_single = getattr(args, "strategy", "binary-pair") == "single-market"
 
     root = Path(args.output).resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -262,6 +263,40 @@ async def run(args):
             license="LGPL-3.0-or-later",
         ),
     )
+    if is_single:
+        report["schema"] = "polymarket-single-market-paper/1"
+        report["source_strategy"] = dict(
+            implementation="bounded single-market threshold round trip"
+        )
+        report["simulation"]["decision_delay_ms"] = 0
+    from .monitor import MonitorWriter
+
+    monitor = MonitorWriter(
+        root,
+        dict(
+            run_id=root.name,
+            mode="PAPER",
+            source="live_public_feed",
+            slug=args.slug,
+            strategy=getattr(args, "strategy", "binary-pair"),
+            simulation=report["simulation"],
+            starting_balance="1000",
+            started_ns=started_ns,
+        ),
+    )
+    monitor.snapshot(
+        dict(
+            status="initializing",
+            published_ns=time.time_ns(),
+            books=[],
+            orders=[],
+            events=[],
+            fills=[],
+            account={},
+            phase="initializing",
+            reason="fetching_market_metadata",
+        )
+    )
     from ..strategies import binary_pair_arbitrage
     from ..strategies import binary_market
 
@@ -270,6 +305,10 @@ async def run(args):
         Path(binary_pair_arbitrage.__file__),
         Path(binary_market.__file__),
     ]
+    if is_single:
+        from ..strategies import single_market
+
+        source_files.append(Path(single_market.__file__))
     if is_maker:
         from ..strategies import depth_maker, depth_maker_nautilus
         from . import fees, rewards
@@ -354,9 +393,22 @@ async def run(args):
                 PolymarketNoRewardFeeModel(),
                 ThroughPriceFillModel(),
             )
+        elif is_single:
+            from ..strategies.single_market import SingleRules
+
+            rules = SingleRules(
+                quantity=Decimal(args.quantity),
+                buy_below=Decimal(args.buy_below),
+                take_profit=Decimal(args.take_profit),
+                stop_loss=Decimal(args.stop_loss),
+                hold_ns=args.hold_seconds * 10**9,
+            )
         else:
             rules = PairRules()
         report["rules"] = asdict(rules)
+        monitor.metadata.update(
+            rules=asdict(rules), title=instruments[0].info.get("question", args.slug)
+        )
         node = (
             LiveNode.builder(
                 "LOCAL-POLY-PAIR", TraderId("PAPER-001"), Environment.SANDBOX
@@ -420,8 +472,13 @@ async def run(args):
             strategy = DepthMakerPaperStrategy(
                 [i.id for i in instruments], rules, reward_terms
             )
+        elif is_single:
+            from ..strategies.single_market import SingleMarketPaperStrategy
+
+            strategy = SingleMarketPaperStrategy([i.id for i in instruments], rules)
         else:
             strategy = BinaryPairPaperStrategy([i.id for i in instruments], rules)
+        strategy.monitor = monitor
         node.add_strategy(strategy)
         cache, handle = node.cache, node.handle()
         task = asyncio.create_task(node.run_async())
@@ -459,6 +516,8 @@ async def run(args):
     except Exception as e:
         report.update(status="failed", error=type(e).__name__ + ": " + str(e))
     finally:
+        if strategy and hasattr(strategy, "currency"):
+            strategy.publish_monitor("stopping", force=True)
         if handle:
             handle.stop()
         if task:
@@ -522,7 +581,30 @@ async def run(args):
                     status="failed", report_error=type(e).__name__ + ": " + str(e)
                 )
         if node:
+            if strategy and hasattr(strategy, "currency"):
+                strategy.publish_monitor(
+                    report["status"], report.get("error"), force=True
+                )
             node.dispose()
+        if not strategy or not hasattr(strategy, "currency"):
+            monitor.snapshot(
+                dict(
+                    status="failed",
+                    error=report.get("error"),
+                    published_ns=time.time_ns(),
+                    books=[],
+                    orders=[],
+                    events=[],
+                    fills=[],
+                    account={},
+                    phase="failed",
+                    reason="initialization_failed",
+                )
+            )
+        try:
+            monitor.close()
+        except Exception as exc:
+            report.update(status="failed", observation_error=str(exc))
         report.update(
             finished_ns=time.time_ns(),
             elapsed_s=(time.time_ns() - started_ns) / 1e9,
@@ -552,12 +634,19 @@ def main(*, default_strategy="binary-pair"):
     parser.add_argument("--seconds", type=int, default=180)
     parser.add_argument("--output", required=True)
     parser.add_argument(
-        "--strategy", choices=["binary-pair", "depth-maker"], default=default_strategy
+        "--strategy",
+        choices=["binary-pair", "depth-maker", "single-market"],
+        default=default_strategy,
     )
     parser.add_argument(
         "--maker-mode", choices=["conservative", "aggressive"], default="conservative"
     )
     parser.add_argument("--maker-quantity", default="10")
+    parser.add_argument("--quantity", default="10")
+    parser.add_argument("--buy-below", default="0.50")
+    parser.add_argument("--take-profit", default="0.02")
+    parser.add_argument("--stop-loss", default="0.02")
+    parser.add_argument("--hold-seconds", type=int, default=15)
     parser.add_argument(
         "--hedge-mode", choices=["FLATTEN", "BUY_OPPOSITE"], default="FLATTEN"
     )
