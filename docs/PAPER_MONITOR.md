@@ -1,6 +1,6 @@
 # Local Paper Observatory
 
-This local terminal observes a finite Nautilus Paper run. It shows YES/NO depth,
+This local terminal observes finite or rolling Nautilus Paper runs. It shows native YES/NO or Up/Down depth,
 orders, simulated fills, inventory, cash, fees, decision reasons and historical
 frames. It has no execution endpoints and cannot send real exchange orders.
 
@@ -23,8 +23,63 @@ Open <http://127.0.0.1:5190>. The interface reads `results/` and `web/dist/` by
 default. It listens on loopback only; cross-origin browser requests and foreign
 Host headers are rejected. Closing the page does not stop a Paper process.
 
-The initial interface is read-only. Start finite experiments from a separate
-terminal, with a new output directory for each run. Runs appear automatically.
+The interface is read-only. Start experiments from a separate terminal, with a
+new output directory for each run. Runs appear automatically. By default it
+follows the newest run; selecting a historical run disables following until
+the user chooses the follow button again.
+
+## Continuous BTC observation
+
+```powershell
+.venv/Scripts/python.exe -m prediction_market_strategies.paper.continuous `
+  --root results --session-id my-btc-observation
+
+# Graceful stop: finish outstanding virtual orders and attempt to close inventory.
+.venv/Scripts/python.exe -m prediction_market_strategies.paper.continuous `
+  --root results --stop-session my-btc-observation
+```
+
+This session uses the currently open official BTC 15-minute Up/Down market. It
+validates the returned slug, condition ID, outcomes, close time and orderability
+before starting one child at a time. The underlying native WebSocket feed is
+live; only execution is simulated. No credentials or real execution client are
+configured. Keep the local process and computer running for ongoing observation.
+
+Each cycle buys 10 Up shares with a native IOC limit order, then requests a sell
+after a 0.02 price move in either direction or 10 seconds of holding. After a
+confirmed flat cycle it waits 5 seconds. Decisions are limited to every 100 ms;
+all arriving native book updates still reach the engine. Freshness, spread,
+depth, fee, minimum-size and order-confirmation checks remain active. This is an
+activity demonstration: repeated crossing of the spread and fees can steadily
+lose virtual money. It is not designed as a profitable trading signal.
+
+New entries stop 60 seconds before expiry; remaining inventory is requested to
+exit 45 seconds before expiry. After verified flat native shutdown, the next
+current window is discovered automatically. Cash, losses and cumulative fees
+carry forward; no new 1,000-unit reset occurs. Unknown order state, residual
+inventory, collateral changes or a failed child stop continuation with the
+original reports retained. Discovery failures retry without inventing a market.
+A root-level OS lock prevents a second session owner. Free disk below 2 GiB
+prevents another child from starting.
+
+An explicitly stopped session can be resumed into a new session ID with
+`--carry-from-session <old-session-id>`; the prior native closing report and
+account balance must agree. Use the graceful stop command above, rather than
+terminating the processes. Session control, discovery receipts and child logs
+are in `results/_sessions/<session-id>/`; UI runs are in
+`results/<session-id>-0001/`, `-0002/`, and so on.
+
+**Continuous observation storage is deliberately different from finite replay
+capture.** It retains instrument metadata, monitor frames, decisions, native
+order/fill events and final account reports. It does not retain every high-rate
+raw WebSocket book batch in memory or export a full raw-input replay catalog.
+Reports explicitly mark `raw_book_inputs_preserved=false` and
+`full_input_replay_available=false`. Finite capture/replay behavior is unchanged.
+
+The interface consumes replacement snapshots approximately every 0.5 seconds,
+refreshes historical chart points every 5 seconds and appends the newest live
+point immediately. UI connection, process heartbeat and official-book freshness
+are shown separately. A connected page alone does not prove fresh market data.
 
 ## Simple single-market strategy
 
@@ -85,7 +140,7 @@ synthetic validation; none of these produces real trades.
   Display frames may be coalesced; they are not the raw market data archive.
 - `monitor-state.json` is atomically replaced. `monitor-events.jsonl` and
   `monitor-history.jsonl` are small UI/audit journals, not a SQL database.
-- Native instruments and book events stay in the existing Parquet catalog.
+- In finite capture mode, native instruments and book events stay in the existing Parquet catalog.
   `report.json` records final results, archive checks and artifact hashes.
 - The local API serves GET-only run/state/history/frame/SSE endpoints. SSE
   reconnects replace full state, avoiding duplicate fill accumulation.
