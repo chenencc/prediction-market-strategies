@@ -83,3 +83,7 @@ strategy and independent-process reproduction, start with
 For incremental HF downloads, E: storage, local-cache retirement after verified
 conversion, and direct backtest/fee-context readers, see
 [HF V3 incremental backtest sync](docs/HF_V3_SYNC.md).
+
+For the complete frozen V3 history import, cross-platform pair filtering and
+short-hold convergence research, see
+[Pair convergence research](docs/PAIR_CONVERGENCE_RESEARCH.md).
