@@ -75,3 +75,7 @@ synthetic transport responses processed by the actual recorder.
 
 See [engine upgrade workflow](docs/ENGINE_UPGRADES.md) and
 [architecture boundaries](docs/ARCHITECTURE.md).
+
+For the retained real HF V3 sample, fixed engine verification, minimal native
+strategy and independent-process reproduction, start with
+[Real V3 reproducible loop](docs/V3_REPRODUCIBLE_LOOP.md).

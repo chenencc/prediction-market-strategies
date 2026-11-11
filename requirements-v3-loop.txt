@@ -1,0 +1,9 @@
+# Isolated Windows CPython 3.13.14 environment; exact compatibility engine.
+-r requirements-exporter-runtime.txt
+attrs==26.1.0
+jsonschema==4.25.1
+jsonschema-specifications==2025.9.1
+psutil==7.2.2
+referencing==0.37.0
+rpds-py==2026.9.1
+zstandard==0.25.0
