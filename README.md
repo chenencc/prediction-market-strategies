@@ -79,3 +79,7 @@ See [engine upgrade workflow](docs/ENGINE_UPGRADES.md) and
 For the retained real HF V3 sample, fixed engine verification, minimal native
 strategy and independent-process reproduction, start with
 [Real V3 reproducible loop](docs/V3_REPRODUCIBLE_LOOP.md).
+
+For incremental HF downloads, E: storage, local-cache retirement after verified
+conversion, and direct backtest/fee-context readers, see
+[HF V3 incremental backtest sync](docs/HF_V3_SYNC.md).
