@@ -1,5 +1,10 @@
 # Incremental HF V3 download and backtest preparation
 
+For the current fixed full snapshot, bundled dependencies, and another-machine
+commands, use [V3 data handoff](V3_DATA_HANDOFF_ZH.md). That guide supersedes the
+historical local-path setup and initial-batch status below. No separate collector
+checkout is required by the current default CLI.
+
 This private repository now provides `tools/hf_v3_sync.py` and the local
 `BacktestDataset` reader. Market data, download cache, conversion work, indexes,
 receipts and referenced quality certificates live on **E:**. Code and Python
@@ -102,10 +107,12 @@ production1000/
   latest-run.json                  current invocation or last completed result
 ```
 
-Set the private source directory and fixed collector services directory on
-`PYTHONPATH` (the CLI does this itself), then:
+Install this repository in editable mode and activate the bundled reader (the
+CLI does this itself), then:
 
 ```python
+from prediction_market_strategies.data.postprocess_runtime import configure_postprocess
+configure_postprocess()
 from prediction_market_strategies.data.hf_backtest import BacktestDataset
 
 dataset = BacktestDataset('E:/metaculus_data/backtests/hf-v3/production1000')

@@ -1,5 +1,10 @@
 # Prediction Market Strategies
 
+For the fixed real HF V3 dataset, exact field dictionary, standalone reader code,
+and another-machine setup, start with [V3 data and postprocessing handoff](docs/V3_DATA_HANDOFF_ZH.md).
+The download/conversion commands now include their hash-pinned dependencies in
+`vendor/v3_postprocess`; a private collector checkout is not required.
+
 Private research workspace for Polymarket and Predict.fun strategies built on
 NautilusTrader. This repository contains our strategy, adapter and backtest code;
 the engine fork contains only changes which require engine internals.

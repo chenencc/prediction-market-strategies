@@ -1,0 +1,616 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Frozen hf-file-spool/1 structural contract",
+  "description": "Published baseline dea0711; unknown additive fields allowed. Semantic hashes, sequence joins, raw protocols and coverage require separate validation.",
+  "$defs": {
+    "event": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "marketdata-event/2"
+        },
+        "venue": {
+          "enum": [
+            "polymarket",
+            "predictfun",
+            "myriad"
+          ]
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "native_market_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_transport": {
+          "enum": [
+            "websocket",
+            "rest",
+            "control"
+          ]
+        },
+        "timestamp_received_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "receive_monotonic_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "connection_epoch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "collector_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "key_slot": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            }
+          ]
+        },
+        "is_derived": {
+          "type": "boolean"
+        },
+        "raw_payload": {
+          "type": "string"
+        },
+        "http_status": {
+          "type": "integer"
+        },
+        "request_sent_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "request_params": {
+          "type": "object"
+        },
+        "response_headers": {
+          "type": "object"
+        },
+        "work_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalized_events": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "topic": {
+          "type": "string"
+        },
+        "timestamp_source_ms": {
+          "type": [
+            "integer",
+            "number",
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "venue",
+        "event_type",
+        "native_market_id",
+        "source_transport",
+        "timestamp_received_ns",
+        "receive_monotonic_ns",
+        "connection_epoch",
+        "collector_sequence",
+        "key_slot",
+        "is_derived",
+        "raw_payload"
+      ],
+      "additionalProperties": true
+    },
+    "block": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "file-spool-block/1"
+        },
+        "file": {
+          "type": "string",
+          "pattern": "^[0-9]{20}\\.jsonl$"
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema",
+        "file",
+        "first",
+        "last",
+        "rows",
+        "bytes",
+        "sha256"
+      ],
+      "additionalProperties": true
+    },
+    "file": {
+      "type": "object",
+      "properties": {
+        "remote_path": {
+          "type": "string",
+          "pattern": "^raw-collections/[^/]+/(events/[0-9]{20}\\.zip|metadata/[a-f0-9]{64}\\.json\\.gz)$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "remote_path",
+        "bytes",
+        "sha256"
+      ],
+      "additionalProperties": true
+    },
+    "publication": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "file-spool-publication/1"
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[0-9]{20}-[0-9]{20}$"
+        },
+        "encoding": {
+          "const": "marketdata-event/2-jsonl-zstd3"
+        },
+        "first": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        },
+        "source_payload_is_official_event_envelope": {
+          "const": true
+        },
+        "full_trade_completeness_certified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "identity",
+        "encoding",
+        "first",
+        "last",
+        "blocks",
+        "files",
+        "source_payload_is_official_event_envelope",
+        "full_trade_completeness_certified"
+      ],
+      "additionalProperties": true
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "start_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "clock_not_extended_on_restart": {
+          "const": true
+        }
+      },
+      "required": [
+        "start_ns",
+        "end_ns",
+        "seconds",
+        "clock_not_extended_on_restart"
+      ],
+      "additionalProperties": true
+    },
+    "metadataRef": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "observed_at_ns": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "sha256"
+      ],
+      "additionalProperties": true
+    },
+    "instrument": {
+      "type": "object",
+      "properties": {
+        "outcome_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "book_origin": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "outcome_id",
+        "asset_id",
+        "book_origin"
+      ],
+      "additionalProperties": true
+    },
+    "marketInput": {
+      "type": "object",
+      "properties": {
+        "member": {
+          "type": "string",
+          "minLength": 1
+        },
+        "metadata_ref": {
+          "$ref": "#/$defs/metadataRef"
+        },
+        "instruments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/instrument"
+          }
+        }
+      },
+      "required": [
+        "member",
+        "metadata_ref",
+        "instruments"
+      ],
+      "additionalProperties": true
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "task_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "offer": {
+          "type": "object",
+          "properties": {
+            "candidate": {
+              "type": "object",
+              "properties": {
+                "task_type": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "group_id": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "members": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "task_type",
+                "group_id",
+                "members"
+              ],
+              "additionalProperties": true
+            },
+            "markets": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/marketInput"
+              }
+            }
+          },
+          "required": [
+            "candidate",
+            "markets"
+          ],
+          "additionalProperties": true
+        },
+        "admitted_at_ns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actual_started_at_ns": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "closed_at_ns": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "terminal_evidence": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "group_id",
+        "task_type",
+        "offer",
+        "admitted_at_ns",
+        "actual_started_at_ns",
+        "closed_at_ns",
+        "terminal_evidence"
+      ],
+      "additionalProperties": true
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "task_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "outcome_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object"
+          }
+        },
+        "equivalence_verified": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "task_type",
+        "members",
+        "outcome_bindings",
+        "equivalence_verified"
+      ],
+      "additionalProperties": true
+    },
+    "catalog": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "file-spool-catalog/1"
+        },
+        "sessions": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/session"
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "body_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "observed_at_ns": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "body_sha256",
+              "observed_at_ns"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "selections": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/selection"
+          }
+        },
+        "bodies": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "physical_subscriptions": {
+          "type": "object",
+          "properties": {
+            "schema": {
+              "const": "shared-native-subscriptions/1"
+            },
+            "feeds": {
+              "type": "object"
+            },
+            "physical_feed_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "contract_hash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "schema",
+            "feeds",
+            "physical_feed_count",
+            "contract_hash"
+          ],
+          "additionalProperties": true
+        },
+        "pair_relations_stored_once": {
+          "const": true
+        },
+        "shared_polymarket_recorded_once": {
+          "const": true
+        },
+        "official_terminal_members": {
+          "type": "object"
+        },
+        "recording_window": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/window"
+            }
+          ]
+        },
+        "trade_report": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "connection_gaps": {
+          "type": "array"
+        },
+        "restart_requires_fresh_WS_snapshots": {
+          "const": true
+        },
+        "trade_cursor_checkpoint": {
+          "const": "trade-queue"
+        },
+        "historical_missing_events_not_invented": {
+          "const": true
+        }
+      },
+      "required": [
+        "schema",
+        "sessions",
+        "metadata",
+        "selections",
+        "bodies",
+        "physical_subscriptions",
+        "pair_relations_stored_once",
+        "shared_polymarket_recorded_once",
+        "official_terminal_members",
+        "recording_window",
+        "trade_report",
+        "connection_gaps",
+        "restart_requires_fresh_WS_snapshots",
+        "trade_cursor_checkpoint",
+        "historical_missing_events_not_invented"
+      ],
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/block"
+    },
+    {
+      "$ref": "#/$defs/publication"
+    },
+    {
+      "$ref": "#/$defs/catalog"
+    }
+  ]
+}

@@ -29,3 +29,6 @@ artifacts/
 *.feather
 *.sqlite*
 !src/prediction_market_strategies/data/
+!docs/data/
+!docs/data/*.json
+.runtime/

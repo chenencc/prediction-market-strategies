@@ -1,5 +1,20 @@
 # Third-party strategy reference
 
+## Bundled V3 postprocessing dependency closure
+
+`vendor/v3_postprocess` contains the local Python import dependencies of the V3
+standardizer and Nautilus exporter from `chenencc/market-data-collector`.
+`SOURCE.json` records the base commit and exact file hashes, including the
+working-tree exporter fixes. The copied paths were not present in that
+repository's original commit `cb0f6631556bf460d03594fe20f9bbd020b47d19`.
+The original licensing notice is retained as `vendor/v3_postprocess/LICENSE`;
+its Covered Contributions license applies to these additions. This does not
+relicense Nautilus, Python dependencies, the engine fork, or source datasets.
+Some copied modules also define upstream writer helpers; the documented
+consumer CLI uses only local decoding/conversion and read-only HF access.
+
+## Strategy reference
+
 `src/prediction_market_strategies/strategies/binary_pair_arbitrage.py` adapts the
 binary-pair strategy concept and entry checks from:
 

@@ -1,0 +1,46 @@
+{
+  "schema": "v3-portable-readback/1",
+  "status": "passed",
+  "chunks": 2,
+  "through_sequence": 149734,
+  "event_counts": {
+    "OrderBookDeltas": 243059,
+    "TradeTick": 177
+  },
+  "availability_monotonic": true,
+  "comparisons": [
+    {
+      "identity": "00000000000000000001-00000000000000072220",
+      "events": 112333,
+      "event_fingerprint_sha256": "36f8b8f0f029de92463382278eebd8a33cd0528c87af14b9c99732cc670c3e3c",
+      "matches_existing_e_drive": true
+    },
+    {
+      "identity": "00000000000000072221-00000000000000149734",
+      "events": 130903,
+      "event_fingerprint_sha256": "82e7f0ef254cd97de268a4b11aa07457eb7fcd752ba3eab9915d3d6bbcbbffb2",
+      "matches_existing_e_drive": true
+    }
+  ],
+  "private_collector_checkout_used": false,
+  "loaded_bundled_modules": [
+    "services\\local_postprocess\\books.py",
+    "services\\local_postprocess\\instruments.py",
+    "services\\local_postprocess\\nautilus.py",
+    "services\\local_postprocess\\standard.py",
+    "services\\mixed_recorder\\control.py",
+    "services\\mixed_recorder\\planner.py",
+    "services\\mixed_recorder\\publication.py",
+    "services\\mixed_recorder\\shared_feeds.py",
+    "services\\mixed_recorder\\store.py",
+    "services\\native_archive\\catalog.py",
+    "services\\native_archive\\fees.py",
+    "services\\native_archive\\layout.py",
+    "services\\native_archive\\objects.py",
+    "services\\native_archive\\trades.py"
+  ],
+  "retired_local_zip_cache": true,
+  "full_new_machine_dataset_acceptance": false,
+  "source_quality_reaudited": false,
+  "execution_ready": false
+}

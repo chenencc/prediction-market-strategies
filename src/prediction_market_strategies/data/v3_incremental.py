@@ -31,7 +31,7 @@ def checkpoint(path):
     return json.loads(gzip.decompress(Path(path).read_bytes()))
 
 
-def verify_conversion(archive, manifest, header, standard, native, previous):
+def verify_conversion(archive, manifest, header, standard, native, previous, *, cold_events=None):
     from mixed_recorder.backtest_spool import iter_archive, BookReplay
     from local_postprocess.nautilus import rows, read_release, make_instrument, book_batch, native_id
     from local_postprocess.compact_standard import baseline_key, asset_alias
@@ -55,20 +55,21 @@ def verify_conversion(archive, manifest, header, standard, native, previous):
             nb.apply_deltas(event)
             native_books[ident] = nb
     event_counts = Counter()
-    for event in read_release(native):
+    for event in read_release(native) if cold_events is None else cold_events:
         event_counts[type(event).__name__] += 1
         if type(event).__name__ == "OrderBookDeltas":
             book = native_books.setdefault(str(event.instrument_id), OrderBook(event.instrument_id, BookType.L2_MBP))
             book.apply_deltas(event)
-    saved = list(rows(standard, "source_events"))
-    saved.sort(key=lambda r: json.loads(r["envelope_json"])["record_ordinal"])
+    saved = sorted((json.loads(r["envelope_json"]) for r in rows(standard, "source_events")),
+                   key=lambda record: record["record_ordinal"])
     iterator = iter_archive(archive, manifest["archive"])
     if next(iterator) != header:
         raise ValueError("header_changed_during_conversion")
     book_replay = BookReplay(header)
     count = 0
     for ordinal, record in enumerate(iterator):
-        if ordinal >= len(saved) or json.loads(saved[ordinal]["envelope_json"])["compact_record"] != record:
+        if (ordinal >= len(saved) or saved[ordinal]["record_ordinal"] != ordinal
+                or saved[ordinal]["compact_record"] != record):
             raise ValueError("canonical_record_loss")
         book_replay.apply(record)
         count += 1
@@ -126,7 +127,7 @@ def fee_summary(header, records):
 def convert_chunk(work, archive, manifest, manifest_path, revision, entry, config, previous, quality):
     from mixed_recorder.backtest_spool import iter_archive
     from local_postprocess.compact_standard import Convert, CompactTables
-    from local_postprocess.nautilus import export
+    from local_postprocess import nautilus as native_exporter
     import nautilus_trader as nt
 
     identity = manifest["identity"]
@@ -180,21 +181,29 @@ def convert_chunk(work, archive, manifest, manifest_path, revision, entry, confi
     standard_commit = dict(identity=identity, last=manifest["last"], source_sha256=sha(manifest_path),
                            release_sha256=sha(standard / "release.json"))
     commits = []
+    prior_release_paths = {}
     if prior:
         commits.append(prior["standard_commit"])
-        link_tree(previous / "standard", standard_root / "releases" / prior["identity"])
-        link_tree(previous / "nautilus", native_root / "releases" / prior["identity"])
-        atomic_json(native_root / "state.json", dict(identity=prior["native_state_identity"],
+        prior_release_paths[prior["identity"]] = (previous / "standard", previous / "nautilus")
+        predecessor_identity = dict(prior["native_state_identity"])
+        legacy = config.get("compatible_nautilus_predecessor_sha256")
+        if legacy and predecessor_identity["converter_sha256"] == legacy:
+            predecessor_identity["converter_sha256"] = sha(Path(native_exporter.__file__))
+        atomic_json(native_root / "state.json", dict(identity=predecessor_identity,
                     commits=[prior["native_commit"]], last=prior["last"]))
     commits.append(standard_commit)
     atomic_json(standard_root / "state.json", dict(schema="market-standard-state/2", repo=config["repo"],
                 collection=config["collection"], first=config["first_sequence"], last=manifest["last"], commits=commits))
     native = native_root / "releases" / identity
+    cold = []
     with catalog_paths():
-        exported = export(standard_root, native_root, max_batches=1)
+        exported = native_exporter.export(standard_root, native_root, max_batches=1,
+                          catalog_workers=config.get("catalog_workers", 1), on_cold_replay=cold.append,
+                          prior_release_paths=prior_release_paths)
         if exported["new_batches"] != 1 or exported["through_sequence"] != manifest["last"]:
             raise ValueError("native_increment_not_completed")
-        proof = verify_conversion(archive, manifest, header, standard, native, previous)
+        proof = verify_conversion(archive, manifest, header, standard, native, previous,
+                                  cold_events=cold.pop() if cold else None)
     native_state = read(native_root / "state.json")
     bundle = work / "bundle"
     bundle.mkdir()

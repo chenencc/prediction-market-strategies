@@ -16,8 +16,6 @@ import time
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
-COLLECTOR = REPO.parent / "market-data-collector"
-sys.path.insert(0, str(COLLECTOR / "services"))
 
 
 def validate_entries(entries, first_sequence):
@@ -38,6 +36,8 @@ def validate_entries(entries, first_sequence):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root", type=Path, default=Path("E:/metaculus_data/backtests/hf-v3/production1000"))
+    p.add_argument("--collector", type=Path, help="Explicit alternate checkout; defaults to bundled readers")
+    p.add_argument("--runtime-lock", type=Path)
     p.add_argument("--token-file", type=Path, required=True)
     p.add_argument("--revision", required=True)
     p.add_argument("--workers", type=int, default=4)
@@ -47,9 +47,11 @@ def main():
         p.error("1..8 download workers required")
     if not re.fullmatch("[0-9a-f]{40}", args.revision):
         p.error("exact 40-character revision required")
+    from prediction_market_strategies.data.postprocess_runtime import configure_postprocess, runtime_lock_path
+    collector = configure_postprocess(args.collector)
     from pair_recorder.supervisor import OwnerLock
     from prediction_market_strategies.data.hf_sync import (
-        HFRemote, atomic_json, blob, core_manifest, read, sha, sync, verify_bundle, connect,
+        HFRemote, atomic_json, blob, core_manifest, read, sha, sync, connect,
     )
     from contextlib import closing
     import shutil
@@ -73,15 +75,19 @@ def main():
         atomic_json(job / ("worker-code-" + str(status["started_ns"]) + ".json"), code_hashes)
         cfg = read(root / "config.lock.json")
         for path, digest in cfg["converter_files"].items():
-            if sha(COLLECTOR / path) != digest:
+            if sha(collector / path) != digest:
                 raise ValueError("collector_lock_changed:" + path)
+        if cfg.get('bundled_source_manifest_sha256'):
+            if sha(collector/'SOURCE.json') != cfg['bundled_source_manifest_sha256']:
+                raise ValueError('bundled_source_manifest_changed')
         for path, digest in cfg["private_files"].items():
             if sha(REPO / path) != digest:
                 raise ValueError("private_converter_lock_changed:" + path)
         spec = importlib.util.spec_from_file_location("loop_runtime", REPO / "tools/run_v3_loop.py")
         runtime = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(runtime)
-        verified = runtime.verify_runtime(REPO / "runtime.compatibility.lock.json")
+        lock_path = runtime_lock_path(REPO,args.runtime_lock)
+        verified = runtime.verify_runtime(lock_path)
         if verified["source_commit"] != cfg["engine_commit"] or verified["binary_sha256"] != cfg["engine_binary_sha256"]:
             raise ValueError("runtime_lock_changed")
         token = args.token_file.read_text(encoding="utf-8-sig").strip()
@@ -99,7 +105,12 @@ def main():
             if ident in done:
                 if done[ident]["blob"] != entry["blob"]:
                     raise ValueError("completed_manifest_changed")
-                verify_bundle(root / "chunks" / ident, done[ident]["receipt_sha"])
+                # Prior commits already have durable full verification. Bind
+                # the committed receipt here; sync verifies the predecessor
+                # and research verifies all file contents as it reads them.
+                receipt = root / "chunks" / ident / "receipt.json"
+                if sha(receipt) != done[ident]["receipt_sha"]:
+                    raise ValueError("completed_receipt_changed:" + ident)
         save(total_chunks=len(entries), reused_converted_chunks=len(done),
              through_sequence_target=expected-1, phase="download", downloaded_pending_chunks=0)
 
@@ -146,7 +157,8 @@ def main():
             time.sleep(min(30, 5*(round_index+1)))
         else:
             raise ValueError("download_retry_exhausted_" + str(len(pending)))
-        save(phase="convert", download_complete=True, download_completed_ns=time.time_ns())
+        save(phase="convert", download_complete=True, download_completed_ns=time.time_ns(),
+             catalog_workers=cfg.get("catalog_workers", 1))
 
         class FrozenRemote(HFRemote):
             def head(self, ref):
@@ -182,7 +194,7 @@ def main():
             with (job/"research.stdout.log").open("ab") as stdout, (job/"research.stderr.log").open("ab") as stderr:
                 command = [sys.executable, "-B", str(REPO/"tools/run_pair_research.py"),
                            "--root", str(root), "--output", str(args.research_output),
-                           "--through-sequence", str(expected-1)]
+                           "--through-sequence", str(expected-1), "--runtime-lock", str(lock_path)]
                 result = subprocess.run(command, stdout=stdout, stderr=stderr, cwd=REPO)
             if result.returncode:
                 raise ValueError("research_subprocess_failed_"+str(result.returncode))

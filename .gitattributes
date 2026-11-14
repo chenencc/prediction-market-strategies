@@ -3,3 +3,5 @@
 *.json text eol=lf
 *.toml text eol=lf
 *.md text eol=lf
+# Preserve the exact upstream bytes bound by vendor/v3_postprocess/SOURCE.json.
+vendor/v3_postprocess/** -text -eol -whitespace

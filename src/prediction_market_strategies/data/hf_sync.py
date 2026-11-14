@@ -11,6 +11,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import sqlite3
+import stat
 import time
 import traceback
 
@@ -66,10 +67,40 @@ def remove_work(root, work):
         shutil.rmtree(extended_path(target))
 
 
+def bundle_files(folder, *, expected=None):
+    """Walk once, without resolving the same directories for every small file."""
+    pending = [(os.fspath(folder), "")]
+    expected_dirs = set()
+    if expected is not None:
+        for name in expected:
+            parent = PurePosixPath(name).parent
+            expected_dirs.update(p.as_posix() for p in (parent, *parent.parents) if p.parts)
+    while pending:
+        directory, prefix = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                name = prefix + entry.name
+                wanted = expected is None or name in expected
+                descend = expected is None or name in expected_dirs
+                if not wanted and not descend:
+                    continue
+                info = entry.stat(follow_symlinks=False)
+                if stat.S_ISLNK(info.st_mode) or getattr(info, "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT:
+                    raise ValueError("path_outside_owned_root")
+                if stat.S_ISDIR(info.st_mode) and descend:
+                    pending.append((entry.path, name + "/"))
+                elif stat.S_ISREG(info.st_mode) and wanted and entry.name != "receipt.json":
+                    yield name, entry.path, info.st_size
+
+
+def sha_local(path):
+    with open(path, "rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
 def inventory(folder):
-    folder = extended_path(folder)
-    return {p.relative_to(folder).as_posix(): {"sha256": sha(p), "bytes": p.stat().st_size}
-            for p in sorted(Path(folder).rglob("*")) if p.is_file() and p.name != "receipt.json"}
+    files = sorted(bundle_files(extended_path(folder)))
+    return {name: {"sha256": sha_local(path), "bytes": size} for name, path, size in files}
 
 
 def verify_bundle(folder, expected_receipt=None):
@@ -77,10 +108,13 @@ def verify_bundle(folder, expected_receipt=None):
     if expected_receipt and sha(folder / "receipt.json") != expected_receipt:
         raise ValueError("bundle_receipt_changed")
     receipt = read(folder / "receipt.json")
-    for name, expected in receipt["files"].items():
-        path = bounded(folder, name)
-        if not path.is_file() or path.stat().st_size != expected["bytes"] or sha(path) != expected["sha256"]:
+    remaining = dict(receipt["files"])
+    for name, path, size in bundle_files(folder, expected=remaining):
+        expected = remaining.pop(name)
+        if size != expected["bytes"] or sha_local(path) != expected["sha256"]:
             raise ValueError("converted_file_changed:" + name)
+    if remaining:
+        raise ValueError("converted_file_changed:" + next(iter(remaining)))
     if receipt["conversion_verified"] is not True:
         raise ValueError("unverified_conversion")
     return receipt

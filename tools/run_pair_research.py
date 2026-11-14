@@ -7,7 +7,6 @@ import sys
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO/"src"))
-sys.path.insert(0, str(REPO.parent/"market-data-collector/services"))
 
 
 def main():
@@ -16,11 +15,14 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--max-chunks", type=int)
     p.add_argument("--through-sequence", type=int)
+    p.add_argument("--runtime-lock", type=Path)
     args = p.parse_args()
+    from prediction_market_strategies.data.postprocess_runtime import configure_postprocess, runtime_lock_path
+    configure_postprocess()
     spec = importlib.util.spec_from_file_location("runtime", REPO/"tools/run_v3_loop.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    runtime = module.verify_runtime(REPO/"runtime.compatibility.lock.json")
+    runtime = module.verify_runtime(runtime_lock_path(REPO,args.runtime_lock))
     from prediction_market_strategies.backtest.pair_research import run
     result = run(args.root, args.output, max_chunks=args.max_chunks, through_sequence=args.through_sequence)
     from prediction_market_strategies.data.hf_sync import atomic_json, sha

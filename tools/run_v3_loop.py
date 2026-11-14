@@ -42,8 +42,10 @@ def verify_runtime(lock_path):
     lock = json.loads(Path(lock_path).read_bytes())
     if nt.__version__ != lock["nautilus_trader"] or platform.python_version() != lock["python"]:
         raise ValueError("runtime_version_differs_from_lock")
+    if lock.get('system') and (platform.system()!=lock['system'] or platform.machine()!=lock['machine']):
+        raise ValueError('runtime_platform_differs_from_lock')
     dependencies = {}
-    for name in ("requirements-v3-loop.txt", "requirements-exporter-runtime.txt"):
+    for name in lock.get('requirements_files', ("requirements-v3-loop.txt", "requirements-exporter-runtime.txt")):
         for line in (REPO / name).read_text(encoding="utf-8").splitlines():
             match = re.fullmatch(r"([A-Za-z0-9_-]+)==([^\s]+)", line.strip())
             if match:
@@ -62,7 +64,11 @@ def verify_runtime(lock_path):
             if entry.hash.mode != "sha256" or expected != entry.hash.value:
                 raise ValueError("installed_engine_file_changed:" + str(entry))
             checked += 1
-    binary = next(Path(nt.__file__).parent.glob("*.pyd"))
+    extension = '*.pyd' if platform.system() == 'Windows' else '*.so'
+    candidates = sorted(Path(nt.__file__).parent.glob(extension))
+    binary = next((p for p in candidates if lock['engine_commit'].encode() in p.read_bytes()), None)
+    if binary is None:
+        raise ValueError('native_binary_commit_marker_mismatch')
     if lock["engine_commit"].encode() not in binary.read_bytes():
         raise ValueError("native_binary_commit_marker_mismatch")
     return dict(version=nt.__version__, source_commit=lock["engine_commit"],

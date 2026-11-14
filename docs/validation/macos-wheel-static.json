@@ -1,0 +1,14 @@
+{
+  "schema": "macos-wheel-static-check/1",
+  "status": "passed",
+  "wheel_url": "https://packages.nautechsystems.io/simple/nautilus-trader/nautilus_trader-2.0.0rc8.dev20261025-cp313-cp313-macosx_11_0_arm64.whl",
+  "sha256": "be9ca8e364ec0f276dc302ebf77a0afc7c51b7092a374062430e471eec837561",
+  "bytes": 63365950,
+  "version": "2.0.0rc8.dev20261025",
+  "engine_commit": "b23139911fd9fed82aed2811c5a8a373202b9480",
+  "matching_binaries": [
+    "nautilus_trader/_libnautilus.cpython-313-darwin.so"
+  ],
+  "executed_on_mac": false,
+  "native_data_conversion_acceptance": "pending_on_target_mac"
+}

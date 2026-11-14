@@ -1,0 +1,795 @@
+{
+  "schema": "v3-field-dictionary/1",
+  "codec_columns": {
+    "m": [
+      "market",
+      "version",
+      "sequence",
+      "received_ns"
+    ],
+    "s": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "source_version",
+      "bids",
+      "asks"
+    ],
+    "d": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "source_version",
+      "bids",
+      "asks",
+      "valid"
+    ],
+    "u": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "source_version",
+      "bids",
+      "asks"
+    ],
+    "h": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "source_version"
+    ],
+    "q": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "bid",
+      "ask"
+    ],
+    "l": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "price",
+      "size",
+      "side",
+      "fee_rate_bps"
+    ],
+    "k": [
+      "instrument",
+      "sequence",
+      "position",
+      "received_ns",
+      "source_ns",
+      "source_precision_ns",
+      "epoch",
+      "old_tick",
+      "new_tick"
+    ],
+    "r": [
+      "instruments",
+      "sequence",
+      "received_ns",
+      "epoch"
+    ],
+    "g": [
+      "market",
+      "received_ns",
+      "ready",
+      "epoch"
+    ],
+    "t": [
+      "id",
+      "identity",
+      "market",
+      "instrument",
+      "sequence",
+      "position",
+      "available_at_ns",
+      "execution_ns",
+      "precision_ns",
+      "price",
+      "size",
+      "price_unit",
+      "size_unit",
+      "side",
+      "rank",
+      "identified",
+      "metadata_version",
+      "fees"
+    ],
+    "f": [
+      "id",
+      "sequence",
+      "position",
+      "available_at_ns",
+      "fees"
+    ],
+    "a": [
+      "market",
+      "instrument",
+      "sequence",
+      "position",
+      "available_at_ns",
+      "execution_ns",
+      "precision_ns",
+      "price",
+      "size",
+      "price_unit",
+      "size_unit",
+      "side"
+    ],
+    "n": [
+      "market",
+      "sequence",
+      "received_ns",
+      "source_ns",
+      "epoch",
+      "settlement"
+    ],
+    "e": [
+      "market",
+      "sequence",
+      "received_ns",
+      "source_ns",
+      "resolution"
+    ]
+  },
+  "fee_columns": [
+    "leg",
+    "leg_index",
+    "fee_rate_bps",
+    "fee_amount_native",
+    "fee_unit",
+    "fee_status"
+  ],
+  "canonical_tables": {
+    "source_events": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "event_type",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "transport",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "raw_sha256",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "envelope_json",
+        "arrow_type": "large_string",
+        "nullable": true
+      }
+    ],
+    "book_snapshots": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "event_index",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "instrument",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_precision_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_hash",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_cursor_json",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "origin",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "bids",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "asks",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "boundary",
+        "arrow_type": "string",
+        "nullable": true
+      }
+    ],
+    "book_updates": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "event_index",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "instrument",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_precision_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_hash",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_cursor_json",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "origin",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "bids",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "asks",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "applied",
+        "arrow_type": "bool",
+        "nullable": true
+      }
+    ],
+    "observations": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "kind",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "detail_json",
+        "arrow_type": "large_string",
+        "nullable": true
+      }
+    ],
+    "quotes": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "event_index",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "instrument",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "best_bid",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "best_ask",
+        "arrow_type": "string",
+        "nullable": true
+      }
+    ],
+    "definitions": [
+      {
+        "name": "kind",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "definition_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "definition_json",
+        "arrow_type": "large_string",
+        "nullable": true
+      }
+    ],
+    "trade_payloads": [
+      {
+        "name": "payload_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "execution_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_precision_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "price",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "size",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "price_unit",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "size_unit",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "action",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "detail_json",
+        "arrow_type": "large_string",
+        "nullable": true
+      }
+    ],
+    "trade_occurrences": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "row_index",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "payload_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "page_sha256",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "occurrence_rank",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "window_membership",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_version_id",
+        "arrow_type": "string",
+        "nullable": true
+      }
+    ],
+    "book_baselines": [
+      {
+        "name": "event_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "sequence",
+        "arrow_type": "uint64",
+        "nullable": true
+      },
+      {
+        "name": "received_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "venue",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "market_id",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "connection_epoch",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "event_index",
+        "arrow_type": "uint32",
+        "nullable": true
+      },
+      {
+        "name": "instrument",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_precision_ns",
+        "arrow_type": "int64",
+        "nullable": true
+      },
+      {
+        "name": "source_hash",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "source_cursor_json",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "origin",
+        "arrow_type": "string",
+        "nullable": true
+      },
+      {
+        "name": "bids",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "asks",
+        "arrow_type": "list<item: struct<price: string, size: string>>",
+        "nullable": true
+      },
+      {
+        "name": "boundary",
+        "arrow_type": "string",
+        "nullable": true
+      }
+    ]
+  },
+  "first_chunk_header_keys": [
+    "book_checkpoints",
+    "clocks",
+    "collection",
+    "columns",
+    "external_prefix_requires_history",
+    "fee_columns",
+    "fee_trade_definitions",
+    "instruments",
+    "markets",
+    "metadata_asof_start",
+    "metadata_versions",
+    "native_trade_ids_replaced_by_recovery_identity",
+    "pairs",
+    "protocol_contexts",
+    "record_encoding",
+    "research_contract",
+    "schema",
+    "trade_identity"
+  ],
+  "first_chunk_metadata_keys_by_venue": {
+    "polymarket": [
+      "_collector_definition_basis",
+      "acceptingOrders",
+      "acceptingOrdersTimestamp",
+      "active",
+      "clobTokenIds",
+      "closed",
+      "conditionId",
+      "description",
+      "enableOrderBook",
+      "endDate",
+      "endDateIso",
+      "eventStartTime",
+      "fallbackResolutionType",
+      "feeSchedule",
+      "feeType",
+      "feesEnabled",
+      "gameStartTime",
+      "groupItemThreshold",
+      "id",
+      "line",
+      "makerBaseFee",
+      "marketMetadata",
+      "negRisk",
+      "negRiskMarketID",
+      "negRiskOther",
+      "negRiskRequestID",
+      "orderMinSize",
+      "orderPriceMinTickSize",
+      "outcomes",
+      "positionIds",
+      "question",
+      "questionID",
+      "resolutionMechanism",
+      "resolutionSource",
+      "resolvedBy",
+      "secondsDelay",
+      "sportsMarketType",
+      "startDate",
+      "startDateIso",
+      "takerBaseFee",
+      "tradingEligible",
+      "umaResolutionStatus",
+      "umaResolutionStatuses"
+    ],
+    "predictfun": [
+      "_collector_definition_basis",
+      "conditionId",
+      "decimalPrecision",
+      "description",
+      "feeRateBps",
+      "id",
+      "isNegRisk",
+      "isYieldBearing",
+      "makerFeeBps",
+      "marketType",
+      "marketVariant",
+      "oracleQuestionId",
+      "outcomes",
+      "question",
+      "questionIndex",
+      "resolution",
+      "resolverAddress",
+      "status",
+      "title",
+      "tradingStatus",
+      "variantData",
+      "variantDetails"
+    ]
+  }
+}
